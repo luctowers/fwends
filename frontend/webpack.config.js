@@ -11,6 +11,10 @@ module.exports = function (_env, argv) {
       path: path.resolve(__dirname, "dist"),
       publicPath: "/"
     },
+    devServer: {
+      compress: true,
+      allowedHosts: 'all'
+    },      
     module: {
       rules: [
         {
@@ -31,12 +35,17 @@ module.exports = function (_env, argv) {
     },
     plugins: [
       new HtmlWebpackPlugin({
-        template: path.resolve(__dirname, "public/index.html"),
+        template: path.resolve(__dirname, "src/index.html"),
         inject: true
       })
     ],
     resolve: {
       extensions: [".js", ".jsx"]
     },
+    performance: {
+      hints: false,
+      maxEntrypointSize: 524288,
+      maxAssetSize: 524288
+    }
   };
 };

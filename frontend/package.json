@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "author": "Lucas Towers",
   "license": "MIT",
+  "scripts": {
+    "start-dev": "webpack serve --mode=development"
+  },
   "devDependencies": {
     "@babel/core": "^7.16.0",
     "@babel/plugin-proposal-class-properties": "^7.16.0",
