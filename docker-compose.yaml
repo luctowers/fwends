@@ -1,9 +1,14 @@
 version: "3.9"
+
 services:
   backend:
     build: ./backend
     volumes:
       - ./backend/src:/usr/app/src
+    environment:
+      - "OBJ_ENDPOINT=http://minio:9000"
+      - "OBJ_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE"
+      - "OBJ_SECRET_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
   frontend:
     build: ./frontend
     volumes:
@@ -14,3 +19,29 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf
     ports:
       - 8080:80
+    depends_on:
+      - minio
+      - backend
+      - frontend
+  minio:
+    image: minio/minio
+    command: minio server /data
+    environment:
+      - "MINIO_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE"
+      - "MINIO_SECRET_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    volumes:
+      - minio-data:/data
+  minio-setup:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc config host add myminio http://minio:9000 AKIAIOSFODNN7EXAMPLE wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY;
+      /usr/bin/mc mb myminio/media;
+      /usr/bin/mc policy set download myminio/media;
+      exit 0;
+      "
+
+volumes:
+  minio-data:
