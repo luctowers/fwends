@@ -6,7 +6,7 @@ module.exports = function (_env, argv) {
   const isDevelopment = !isProduction;
 
   return {
-    entry: "./src/index.js",
+    entry: "./src/index.jsx",
     output: {
       path: path.resolve(__dirname, "dist"),
       publicPath: "/"
@@ -28,7 +28,8 @@ module.exports = function (_env, argv) {
           test: /\.css$/,
           use: [
             "style-loader",
-            "css-loader"
+            "css-loader",
+            "postcss-loader"
           ]
         }
       ]
