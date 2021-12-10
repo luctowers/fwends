@@ -5,15 +5,15 @@ import { Link } from "react-router-dom";
 
 function App() {
   return (
-    <div className="py-6 lg:px-8 mx-4 lg:mx-0 flex items-center space-x-8">
-      <Link to='/'>
-        <h1 className="pl-2 font-bold">FWENDS</h1>
+    <div className='m-6 flex items-center justify-center sm:justify-start space-x-4 sm:space-x-6 md:space-x-8'>
+      <Link className='font-bold' to='/'>
+        FWENDS
       </Link>
       <Link to='/pieces'>
-        <h1>PIECES</h1>
+        PIECES
       </Link>
       <Link to='/packs'>
-        <h1>PACKS</h1>
+        PACKS
       </Link>
     </div>
   );

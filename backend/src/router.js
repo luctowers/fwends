@@ -6,6 +6,6 @@ router.get('/api', (ctx) => {
   ctx.body = 'Hello from backend!';
 })
 
-router.use('/api/pack', require('./routes/pack').routes())
+router.use('/api/packs', require('./routes/packs').routes())
 
 module.exports = router;

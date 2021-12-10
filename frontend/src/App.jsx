@@ -9,7 +9,7 @@ import Packs from './Packs';
 
 function App() {
   return (
-    <div>
+    <div className='m-4 sm:m-8'>
       <Header />
       <Routes>
         <Route path="/" element={<Home />} />

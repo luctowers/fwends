@@ -11,4 +11,21 @@ var s3  = new AWS.S3({
 
 const router = new Router();
 
+router.get('/', ctx => {
+  ctx.body = [
+    {
+      id: 0,
+      name: "Bar Pack One",
+      roleCount: 3,
+      stringCount: 27
+    },
+    {
+      id: 1,
+      name: "Foo Pack Two",
+      roleCount: 4,
+      stringCount: 32
+    }
+  ]
+})
+
 module.exports = router;
