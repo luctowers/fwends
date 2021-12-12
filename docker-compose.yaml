@@ -9,6 +9,8 @@ services:
       - "OBJ_ENDPOINT=http://minio:9000"
       - "OBJ_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE"
       - "OBJ_SECRET_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    volumes:
+      - ./fwends-backend/src:/usr/src/fwends-backend/src
   fwends-frontend:
     build: ./fwends-frontend
     volumes:
