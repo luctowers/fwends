@@ -9,9 +9,9 @@ for FILE in $JAVASCRIPT_FILES
 do
     eslint "$ROOT/$FILE"
     if [[ "$?" == 0 ]]; then
-        echo "ESLint Passed: $FILE"
+        echo "ESLint passed: $FILE"
     else
-        echo "ESLint Failed: $FILE"
+        echo "ESLint failed: $FILE"
         PASS=false
     fi
 done
@@ -22,13 +22,15 @@ if [[ $RUST_FILES ]]; then
     result=$(cargo fmt -- --check)
     echo "$result"
     if [[ -z $(cargo fmt -- --check) ]]; then
-        echo "RustFmt Passed"
+        echo "RustFmt fassed"
     else
-        echo "RustFmt Failed"
+        echo "RustFmt failed"
         PASS=false
     fi
 fi
 
 if ! $PASS; then
     exit 1
+else
+    echo "Pre-commit checks passed"
 fi
