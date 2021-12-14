@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fwends-frontend
+  labels:
+    app: fwends-frontend
+spec:
+  clusterIP: None
+  ports:
+    - port: 80
+      name: fwends-frontend
+  selector:
+    app: fwends-frontend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fwends-frontend
+  labels:
+    app: fwends-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fwends-frontend
+  template:
+    metadata:
+      labels:
+        app: fwends-frontend
+    spec:
+      containers:
+      - name: fwends-frontend
+        image: fwends-frontend
+        ports:
+        - containerPort: 80
+          name: http

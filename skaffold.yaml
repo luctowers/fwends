@@ -1,0 +1,12 @@
+apiVersion: skaffold/v2beta26
+kind: Config
+build:
+  artifacts:
+    - image: fwends-backend
+      context: fwends-backend
+    - image: fwends-frontend
+      context: fwends-frontend
+deploy:
+  kubectl:
+    manifests:
+      - kubernetes/*

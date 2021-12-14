@@ -9,7 +9,7 @@ module.exports = function (_env, argv) {
         entry: "./src/index.jsx",
         output: {
             path: path.resolve(__dirname, "dist"),
-            publicPath: "/static"
+            publicPath: "/"
         },
         devServer: {
             compress: true,

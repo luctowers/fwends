@@ -4,7 +4,8 @@
   "author": "Lucas Towers",
   "license": "MIT",
   "scripts": {
-    "start-dev": "webpack serve --mode=development"
+    "start": "webpack serve",
+    "build": "webpack"
   },
   "devDependencies": {
     "@babel/core": "^7.16.0",

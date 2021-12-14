@@ -2,27 +2,37 @@
 
 ## Development Environment (Required)
 
-### Install Docker
+### Install Minikube
 
-https://docs.docker.com/get-docker/
+https://minikube.sigs.k8s.io/docs/start/
 
-### Run services with docker compose, auto-reload configured
+### Enable minikube ingress
 
 ```shell
-docker compose up
+minikube addons enable ingress
+```
+
+### Install Skaffold
+
+https://skaffold.dev/docs/quickstart/
+
+### Run services with Skaffold
+
+```shell
+skaffold dev
+```
+
+### Expose ingress with Minikube tunnel
+
+```shell
+minikube tunnel
 ```
 
 ## Development Environment (Optional)
 
-### Install Rust
+### Install Go
 
-https://www.rust-lang.org/tools/install
-
-### Install RustFmt
-
-```shell
-rustup component add rustfmt
-```
+https://go.dev/doc/install
 
 ### Install Node.js
 
