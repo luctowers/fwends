@@ -16,19 +16,6 @@ do
     fi
 done
 
-cd $ROOT/fwends-backend
-RUST_FILES=$(git diff --cached --name-only --diff-filter=ACM src/ | grep ".rs$")
-if [[ $RUST_FILES ]]; then
-    result=$(cargo fmt -- --check)
-    echo "$result"
-    if [[ -z $(cargo fmt -- --check) ]]; then
-        echo "RustFmt fassed"
-    else
-        echo "RustFmt failed"
-        PASS=false
-    fi
-fi
-
 if ! $PASS; then
     exit 1
 else
