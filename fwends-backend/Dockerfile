@@ -1,12 +1,12 @@
-FROM rust:1.56-alpine3.14 as builder
-RUN apk add musl-dev
-RUN cargo install cargo-watch
-WORKDIR /usr/src/
-RUN cargo new fwends-backend
-WORKDIR /usr/src/fwends-backend
-COPY Cargo.toml Cargo.lock ./
-RUN cargo build
-COPY src src
-RUN touch src/main.rs
-RUN cargo build
-CMD [ "cargo", "watch", "-x",  "run" ]
+FROM golang:1.17-alpine AS build
+WORKDIR /usr/src/app
+COPY go.mod ./
+COPY go.sum ./
+RUN go mod download
+COPY *.go ./
+RUN go build -o /fwends-backend
+
+FROM alpine
+COPY --from=build /usr/src/app/fwends-backend /usr/local/bin/fwends-backend
+EXPOSE 8080
+CMD ["./fwends-backend"]
