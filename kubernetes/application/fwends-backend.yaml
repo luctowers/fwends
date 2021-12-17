@@ -34,3 +34,20 @@ spec:
         ports:
         - containerPort: 8080
           name: http
+        env:
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: fwends-postgres
+              key: host
+        - name: POSTGRES_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: fwends-postgres
+              key: superuserUser
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fwends-postgres
+              key: superuserPassword
+

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fwends-postgres
+type: Opaque
+data:
+  superuserUser: YWRtaW4=
+  superuserPassword: cGFzc3dvcmQ= # TODO: replace with a secure password
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fwends-postgres
+data:
+  host: fwends-postgres # TODO: replace if using external postgres
