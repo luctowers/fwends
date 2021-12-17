@@ -27,7 +27,6 @@ spec:
       labels:
         app: fwends-postgres
     spec:
-      terminationGracePeriodSeconds: 10
       containers:
       - name: fwends-postgres
         image: postgres
