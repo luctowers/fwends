@@ -8,7 +8,6 @@ spec:
   ports:
   - port: 5432
     name: fwends-postgres
-  clusterIP: None
   selector:
     app: fwends-postgres
 ---

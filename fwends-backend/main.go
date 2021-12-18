@@ -31,8 +31,8 @@ func main() {
 	r.Handle("/api/test", Test(db))
 	http.Handle("/", r)
 
-	log.Println("binding to port 8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Println("binding to port 80")
+	log.Fatal(http.ListenAndServe(":80", nil))
 }
 
 func OpenPostgres() (*sql.DB, error) {

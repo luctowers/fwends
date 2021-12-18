@@ -22,11 +22,9 @@ https://skaffold.dev/docs/quickstart/
 skaffold dev
 ```
 
-### Expose ingress with Minikube tunnel
+### Access on port 8080
 
-```shell
-minikube tunnel
-```
+http://localhost:8080/
 
 ## Development Environment (Optional)
 

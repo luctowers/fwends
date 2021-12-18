@@ -8,7 +8,17 @@ build:
       context: fwends-frontend
     - image: fwends-postgres
       context: fwends-postgres
+    - image: fwends-nginx
+      context: fwends-nginx
+      requires:
+      - image: fwends-frontend
+        alias: FRONTEND
 deploy:
   kubectl:
     manifests:
       - kubernetes/*
+portForward:
+- resourceType: deployment
+  resourceName: fwends-nginx
+  port: http
+  localPort: 8080
