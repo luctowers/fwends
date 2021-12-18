@@ -13,3 +13,4 @@ metadata:
   name: fwends-postgres
 data:
   host: fwends-postgres # TODO: replace if using external postgres
+  db: fwends

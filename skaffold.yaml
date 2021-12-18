@@ -6,6 +6,8 @@ build:
       context: fwends-backend
     - image: fwends-frontend
       context: fwends-frontend
+    - image: fwends-postgres
+      context: fwends-postgres
 deploy:
   kubectl:
     manifests:

@@ -40,7 +40,12 @@ spec:
             configMapKeyRef:
               name: fwends-postgres
               key: host
-        - name: POSTGRES_USERNAME
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: fwends-postgres
+              key: db
+        - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
               name: fwends-postgres
@@ -50,4 +55,3 @@ spec:
             secretKeyRef:
               name: fwends-postgres
               key: superuserPassword
-

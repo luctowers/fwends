@@ -43,7 +43,6 @@ func OpenPostgres() (*sql.DB, error) {
 		os.Getenv("POSTGRES_HOST"),
 		os.Getenv("POSTGRES_DB"),
 	)
-	log.Println(connStr)
 	return sql.Open("postgres", connStr)
 }
 

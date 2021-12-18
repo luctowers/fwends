@@ -50,3 +50,11 @@ npm install eslint --global
 chmod +x git-hooks/pre-commit
 ln -s -f ../../git-hooks/pre-commit .git/hooks/pre-commit
 ```
+
+## Useful commands
+
+### Delete persistent Postgres volume
+
+```shell
+kubectl delete pvc -l app=fwends-postgres
+```

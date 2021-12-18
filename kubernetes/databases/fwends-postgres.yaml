@@ -10,7 +10,7 @@ spec:
     name: fwends-postgres
   clusterIP: None
   selector:
-    app: nginx
+    app: fwends-postgres
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -29,12 +29,17 @@ spec:
     spec:
       containers:
       - name: fwends-postgres
-        image: postgres
+        image: fwends-postgres
         ports:
         - containerPort: 5432
           name: postgres
         env:
-        - name: POSTGRES_USERNAME
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: fwends-postgres
+              key: db
+        - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
               name: fwends-postgres
