@@ -6,12 +6,6 @@
 
 https://minikube.sigs.k8s.io/docs/start/
 
-### Enable minikube ingress
-
-```shell
-minikube addons enable ingress
-```
-
 ### Install Skaffold
 
 https://skaffold.dev/docs/quickstart/
