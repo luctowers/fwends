@@ -8,6 +8,8 @@ build:
       context: fwends-frontend
     - image: fwends-postgres
       context: fwends-postgres
+    - image: fwends-redis
+      context: fwends-redis
     - image: fwends-nginx
       context: fwends-nginx
       requires:

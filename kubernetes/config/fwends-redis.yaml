@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fwends-redis
+type: Opaque
+data:
+  password: cmVkaXNwYXNzd29yZA== # TODO: replace with a secure password
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fwends-redis
+data:
+  host: fwends-redis # TODO: replace if using external redis

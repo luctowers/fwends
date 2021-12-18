@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fwends-redis
+  labels:
+    app: fwends-redis
+spec:
+  ports:
+  - port: 6379
+    name: redis
+  selector:
+    app: fwends-redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fwends-redis
+spec:
+  selector:
+    matchLabels:
+      app: fwends-redis
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fwends-redis
+    spec:
+      containers:
+      - name: fwends-redis
+        image: fwends-redis
+        ports:
+        - containerPort: 6379
+          name: redis
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fwends-redis
+              key: password

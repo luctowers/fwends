@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
@@ -25,10 +27,13 @@ func main() {
 		log.Fatal(err)
 	}
 
+	rdb := OpenRedis()
+
 	r := mux.NewRouter()
 	r.HandleFunc("/api", Hello)
 	r.Handle("/api/packs", GetPacks(db))
-	r.Handle("/api/test", Test(db))
+	r.Handle("/api/test1", Test1(db))
+	r.Handle("/api/test2", Test2(rdb))
 	http.Handle("/", r)
 
 	log.Println("binding to port 80")
@@ -36,8 +41,10 @@ func main() {
 }
 
 func OpenPostgres() (*sql.DB, error) {
+	// TODO: make postgres port configurable
+	// TODO: add intraservice tls
 	connStr := fmt.Sprintf(
-		"postgresql://%s:%s@%s/%s?sslmode=disable", // TODO: add intraservice tls
+		"postgresql://%s:%s@%s/%s?sslmode=disable",
 		os.Getenv("POSTGRES_USER"),
 		os.Getenv("POSTGRES_PASSWORD"),
 		os.Getenv("POSTGRES_HOST"),
@@ -46,11 +53,23 @@ func OpenPostgres() (*sql.DB, error) {
 	return sql.Open("postgres", connStr)
 }
 
+func OpenRedis() *redis.Client {
+	// TODO: make redis port configurable
+	return redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf(
+			"%s:6379",
+			os.Getenv("REDIS_HOST"),
+		),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       0,
+	})
+}
+
 func Hello(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(w, "Hello from backend!")
 }
 
-func Test(db *sql.DB) http.HandlerFunc {
+func Test1(db *sql.DB) http.HandlerFunc {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		rows, err := db.Query(`
 			SELECT table_name
@@ -72,6 +91,19 @@ func Test(db *sql.DB) http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(tableNames)
+	}
+	return http.HandlerFunc(fn)
+}
+
+func Test2(rdb *redis.Client) http.HandlerFunc {
+	ctx := context.Background()
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		result, err := rdb.Incr(ctx, "x").Result()
+		if err != nil {
+			log.Fatal(err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
 	}
 	return http.HandlerFunc(fn)
 }

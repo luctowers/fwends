@@ -48,9 +48,19 @@ spec:
           valueFrom:
             secretKeyRef:
               name: fwends-postgres
-              key: superuserUser
+              key: adminUser
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
               name: fwends-postgres
-              key: superuserPassword
+              key: adminPassword
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: fwends-redis
+              key: host
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fwends-redis
+              key: password
