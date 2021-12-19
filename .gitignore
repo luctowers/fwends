@@ -1,4 +1,6 @@
 node_modules/
 dist/
 target/
+kubernetes/custom/*
+!kubernetes/custom/README.md
 .DS_Store
