@@ -11,13 +11,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-type pack struct {
-	Id          int    `json:"id"`
-	Name        string `json:"name"`
-	RoleCount   int    `json:"roleCount"`
-	StringCount int    `json:"stringCount"`
-}
-
 func main() {
 	db, err := connections.OpenPostgres()
 	if err != nil {
