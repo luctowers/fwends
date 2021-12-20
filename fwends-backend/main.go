@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fwends-backend/api"
+	"fwends-backend/api/auth"
 	"fwends-backend/connections"
 	"net/http"
 
@@ -17,13 +17,10 @@ func main() {
 		log.WithError(err).Fatal("Failed to create postgres client")
 	}
 	rdb := connections.OpenRedis()
-	oauth2, err := connections.OpenOauth2()
-	if err != nil {
-		log.WithError(err).Fatal("Failed to create oauth2 client")
-	}
 
 	router := httprouter.New()
-	router.POST("/api/authenticate", api.Authenticate(db, rdb, oauth2))
+	router.POST("/api/auth/", auth.Authenticate(db, rdb))
+	router.GET("/api/auth/clientid", auth.OauthClientId())
 
 	log.Info("Starting http server")
 	log.Fatal(http.ListenAndServe(":80", router))

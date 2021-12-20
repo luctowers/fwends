@@ -1,4 +1,4 @@
-package api
+package auth
 
 import (
 	"context"
@@ -8,9 +8,10 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
-	"fwends-backend/api/util"
+	"fwends-backend/util"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/julienschmidt/httprouter"
@@ -18,28 +19,36 @@ import (
 	"google.golang.org/api/oauth2/v2"
 )
 
-type authenticationBody struct {
-	Token *string `json:"token"`
-}
-
 // TODO: make these configurable
 const sessionIDSize = 32          // 32 bytes
 const sessionTTL = 24 * time.Hour // 1 day
 
-func Authenticate(db *sql.DB, rdb *redis.Client, oauth2 *oauth2.Service) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		decoder := json.NewDecoder(r.Body)
-		var body authenticationBody
-		err := decoder.Decode(&body)
-		if err != nil {
-			util.Error(w, http.StatusBadRequest)
-			log.WithError(err).Warn("Failed to decode authentication body")
-		} else if body.Token == nil {
-			util.Error(w, http.StatusBadRequest)
-			log.WithError(err).Warn("Missing token in authentication body")
-		} else {
-			authenticateToken(w, *body.Token, db, rdb, oauth2)
+func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
+	if len(os.Getenv("OAUTH2_CLIENT_ENABLE")) == 0 {
+		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+			authenticateCreateSession(w, rdb)
 		}
+	} else {
+		var httpClient = &http.Client{}
+		oauth2, err := oauth2.New(httpClient)
+		if err != nil {
+			log.WithError(err).Fatal("Failed to create oauth2 client")
+		}
+		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+			authenticateBody(w, r, db, rdb, oauth2)
+		}
+	}
+}
+
+func authenticateBody(w http.ResponseWriter, r *http.Request, db *sql.DB, rdb *redis.Client, oauth2 *oauth2.Service) {
+	decoder := json.NewDecoder(r.Body)
+	var token string
+	err := decoder.Decode(&token)
+	if err != nil {
+		util.Error(w, http.StatusBadRequest)
+		log.WithError(err).Warn("Failed to decode authentication body")
+	} else {
+		authenticateToken(w, token, db, rdb, oauth2)
 	}
 }
 
