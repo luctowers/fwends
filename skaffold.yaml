@@ -2,10 +2,13 @@ apiVersion: skaffold/v2beta26
 kind: Config
 build:
   artifacts:
-    - image: fwends-backend
-      context: fwends-backend
     - image: fwends-frontend
       context: fwends-frontend
+      docker:
+        buildArgs:
+          WEBPACK_MODE: production
+    - image: fwends-backend
+      context: fwends-backend
     - image: fwends-postgres
       context: fwends-postgres
     - image: fwends-redis
@@ -13,14 +16,20 @@ build:
     - image: fwends-nginx
       context: fwends-nginx
       requires:
-      - image: fwends-frontend
-        alias: FRONTEND
+        - image: fwends-frontend
+          alias: FRONTEND
 deploy:
   kubectl:
     manifests:
       - kubernetes/*
+profiles:
+  - name: dev
+    patches:
+      - op: replace
+        path: /build/artifacts/0/docker/buildArgs/WEBPACK_MODE
+        value: development
 portForward:
-- resourceType: deployment
-  resourceName: fwends-nginx
-  port: http
-  localPort: 8080
+  - resourceType: service
+    resourceName: fwends-nginx
+    port: http
+    localPort: 8080

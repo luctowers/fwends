@@ -1,10 +1,7 @@
 const path = require("path");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 
-module.exports = function (_env, argv) {
-    const isProduction = argv.mode === "production";
-    const isDevelopment = !isProduction;
-
+module.exports = function (_env, _argv) {
     return {
         entry: "./src/index.jsx",
         output: {

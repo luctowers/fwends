@@ -3,5 +3,6 @@ WORKDIR /usr/src/fwends-frontend
 COPY package.json .
 RUN npm install
 COPY . .
-RUN npm run build
-CMD [ "npm", "run", "start" ]
+ARG WEBPACK_MODE=production
+RUN npm run build -- --mode=$WEBPACK_MODE
+CMD ["npm", "run", "start"]
