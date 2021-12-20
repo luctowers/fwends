@@ -7,13 +7,13 @@ function App() {
     return (
         <div className='m-6 flex items-center justify-center sm:justify-start space-x-4 sm:space-x-6 md:space-x-8'>
             <Link className='font-bold' to='/'>
-        FWENDS
+                FWENDS
             </Link>
             <Link to='/pieces'>
-        PIECES
+                PIECES
             </Link>
             <Link to='/packs'>
-        PACKS
+                PACKS
             </Link>
         </div>
     );
