@@ -1,4 +1,4 @@
-package auth
+package api
 
 import (
 	"context"
@@ -6,22 +6,34 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"fwends-backend/util"
 	"io"
 	"net/http"
 	"os"
 	"time"
 
-	"fwends-backend/util"
-
 	"github.com/go-redis/redis/v8"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/api/oauth2/v2"
+	"google.golang.org/api/oauth2/v1"
 )
 
 // TODO: make these configurable
 const sessionIDSize = 32          // 32 bytes
 const sessionTTL = 24 * time.Hour // 1 day
+
+func OauthClientId() httprouter.Handle {
+	id := os.Getenv("OAUTH2_CLIENT_ID")
+	if len(id) == 0 {
+		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+			util.Error(w, http.StatusNoContent)
+		}
+	} else {
+		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+			json.NewEncoder(w).Encode(id)
+		}
+	}
+}
 
 func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 	if len(os.Getenv("OAUTH2_CLIENT_ENABLE")) == 0 {

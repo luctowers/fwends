@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fwends-backend/api/auth"
+	"fwends-backend/api"
 	"fwends-backend/connections"
 	"net/http"
 
@@ -19,8 +19,8 @@ func main() {
 	rdb := connections.OpenRedis()
 
 	router := httprouter.New()
-	router.POST("/api/auth/", auth.Authenticate(db, rdb))
-	router.GET("/api/auth/clientid", auth.OauthClientId())
+	router.POST("/api/auth/", api.Authenticate(db, rdb))
+	router.GET("/api/auth/clientid", api.OauthClientId())
 
 	log.Info("Starting http server")
 	log.Fatal(http.ListenAndServe(":80", router))
