@@ -7,7 +7,7 @@ metadata:
 spec:
   ports:
     - port: 80
-      name: fwends-nginx
+      name: http
   selector:
     app: fwends-nginx
 ---
@@ -28,8 +28,8 @@ spec:
         app: fwends-nginx
     spec:
       containers:
-      - name: fwends-nginx
-        image: fwends-nginx
-        ports:
-        - containerPort: 80
-          name: http
+        - name: fwends-nginx
+          image: fwends-nginx
+          ports:
+            - containerPort: 80
+              name: http

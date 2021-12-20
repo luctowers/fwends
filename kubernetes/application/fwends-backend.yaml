@@ -7,7 +7,7 @@ metadata:
 spec:
   ports:
     - port: 80
-      name: fwends-backend
+      name: http
   selector:
     app: fwends-backend
 ---
@@ -28,49 +28,49 @@ spec:
         app: fwends-backend
     spec:
       containers:
-      - name: fwends-backend
-        image: fwends-backend
-        ports:
-        - containerPort: 80
-          name: http
-        env:
-        - name: POSTGRES_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: fwends-postgres
-              key: host
-        - name: POSTGRES_DB
-          valueFrom:
-            configMapKeyRef:
-              name: fwends-postgres
-              key: db
-        - name: POSTGRES_USER
-          valueFrom:
-            secretKeyRef:
-              name: fwends-postgres
-              key: adminUser
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: fwends-postgres
-              key: adminPassword
-        - name: REDIS_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: fwends-redis
-              key: host
-        - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: fwends-redis
-              key: password
-        - name: OAUTH2_ENABLE
-          valueFrom:
-            configMapKeyRef:
-              name: fwends-oauth2
-              key: enable
-        - name: OAUTH2_CLIENT_ID
-          valueFrom:
-            configMapKeyRef:
-              name: fwends-oauth2
-              key: clientId
+        - name: fwends-backend
+          image: fwends-backend
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: POSTGRES_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: fwends-postgres
+                  key: host
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: fwends-postgres
+                  key: db
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: fwends-postgres
+                  key: adminUser
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fwends-postgres
+                  key: adminPassword
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: fwends-redis
+                  key: host
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fwends-redis
+                  key: password
+            - name: OAUTH2_ENABLE
+              valueFrom:
+                configMapKeyRef:
+                  name: fwends-oauth2
+                  key: enable
+            - name: OAUTH2_CLIENT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: fwends-oauth2
+                  key: clientId

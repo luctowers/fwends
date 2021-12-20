@@ -6,8 +6,8 @@ metadata:
     app: fwends-redis
 spec:
   ports:
-  - port: 6379
-    name: redis
+    - port: 6379
+      name: redis
   selector:
     app: fwends-redis
 ---
@@ -26,14 +26,14 @@ spec:
         app: fwends-redis
     spec:
       containers:
-      - name: fwends-redis
-        image: fwends-redis
-        ports:
-        - containerPort: 6379
-          name: redis
-        env:
-        - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: fwends-redis
-              key: password
+        - name: fwends-redis
+          image: fwends-redis
+          ports:
+            - containerPort: 6379
+              name: redis
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fwends-redis
+                  key: password

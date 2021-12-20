@@ -6,8 +6,8 @@ metadata:
     app: fwends-postgres
 spec:
   ports:
-  - port: 5432
-    name: postgres
+    - port: 5432
+      name: postgres
   selector:
     app: fwends-postgres
 ---
@@ -27,35 +27,35 @@ spec:
         app: fwends-postgres
     spec:
       containers:
-      - name: fwends-postgres
-        image: fwends-postgres
-        ports:
-        - containerPort: 5432
-          name: postgres
-        env:
-        - name: POSTGRES_DB
-          valueFrom:
-            configMapKeyRef:
-              name: fwends-postgres
-              key: db
-        - name: POSTGRES_USER
-          valueFrom:
-            secretKeyRef:
-              name: fwends-postgres
-              key: adminUser
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: fwends-postgres
-              key: adminPassword
-        volumeMounts:
-        - name: data
-          mountPath: /var/lib/postgresql/data
+        - name: fwends-postgres
+          image: fwends-postgres
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: fwends-postgres
+                  key: db
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: fwends-postgres
+                  key: adminUser
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fwends-postgres
+                  key: adminPassword
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
   volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
