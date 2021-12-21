@@ -22,76 +22,119 @@ import (
 const sessionIDSize = 32          // 32 bytes
 const sessionTTL = 24 * time.Hour // 1 day
 
-func OauthClientId() httprouter.Handle {
-	id := os.Getenv("OAUTH2_CLIENT_ID")
-	if len(id) == 0 {
-		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-			util.Error(w, http.StatusNoContent)
-		}
-	} else {
-		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-			json.NewEncoder(w).Encode(id)
-		}
+type authServiceInfo struct {
+	GoogleClientId string `json:"google,omitempty"`
+	// TODO: add more oauth services
+}
+
+type authInfo struct {
+	Enable   bool            `json:"enable"`
+	Services authServiceInfo `json:"services"`
+}
+
+type authBody struct {
+	token   string `json:"token"`
+	service string `json:"service"`
+}
+
+type authServices struct {
+	google *oauth2.Service
+}
+
+func AuthInfo() httprouter.Handle {
+	info := authInfo{
+		Enable: len(os.Getenv("AUTH_ENABLE")) != 0,
+		Services: authServiceInfo{
+			GoogleClientId: os.Getenv("GOOGLE_CLIENT_ID"),
+		},
+	}
+	bytes, err := json.Marshal(info)
+	if err != nil {
+		log.WithError(err).Fatal("Failed to encode auth info")
+	}
+	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(bytes)
 	}
 }
 
 func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
-	if len(os.Getenv("OAUTH2_CLIENT_ENABLE")) == 0 {
+	if len(os.Getenv("AUTH_ENABLE")) == 0 {
 		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-			authenticateCreateSession(w, rdb)
+			util.Error(w, http.StatusMisdirectedRequest)
 		}
 	} else {
-		var httpClient = &http.Client{}
-		oauth2, err := oauth2.New(httpClient)
-		if err != nil {
-			log.WithError(err).Fatal("Failed to create oauth2 client")
-		}
+		services := openAuthServices()
 		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-			authenticateBody(w, r, db, rdb, oauth2)
+			authenticateBody(w, r, db, rdb, services)
 		}
 	}
 }
 
-func authenticateBody(w http.ResponseWriter, r *http.Request, db *sql.DB, rdb *redis.Client, oauth2 *oauth2.Service) {
+func openAuthServices() authServices {
+	services := authServices{}
+	var httpClient = &http.Client{}
+	google, err := oauth2.New(httpClient)
+	if err != nil {
+		log.WithError(err).Fatal("Failed to create Google oauth2 client")
+	}
+	services.google = google
+	return services
+}
+
+func authenticateBody(w http.ResponseWriter, r *http.Request, db *sql.DB, rdb *redis.Client, services authServices) {
 	decoder := json.NewDecoder(r.Body)
-	var token string
-	err := decoder.Decode(&token)
+	var body authBody
+	err := decoder.Decode(&body)
 	if err != nil {
 		util.Error(w, http.StatusBadRequest)
 		log.WithError(err).Warn("Failed to decode authentication body")
 	} else {
-		authenticateToken(w, token, db, rdb, oauth2)
+		switch body.service {
+		case "google":
+			authenticateGoogleToken(w, body.token, db, rdb, services.google)
+		default:
+			util.Error(w, http.StatusBadRequest)
+			log.WithFields(log.Fields{
+				"service": body.service,
+			}).Warn("Unrecognized auth service")
+		}
 	}
 }
 
-func authenticateToken(w http.ResponseWriter, token string, db *sql.DB, rdb *redis.Client, oauth2 *oauth2.Service) {
-	call := oauth2.Tokeninfo()
-	call.IdToken(token)
-	tokenInfo, err := call.Do()
-	if err != nil {
-		util.Error(w, http.StatusInternalServerError)
-		log.WithError(err).Warn("Failed to get oauth2 id token info")
+func authenticateGoogleToken(w http.ResponseWriter, token string, db *sql.DB, rdb *redis.Client, google *oauth2.Service) {
+	if google == nil {
+		util.Error(w, http.StatusBadRequest)
+		log.Warn("Google oauth2 is not enabled")
 	} else {
-		authenticateTokenInfo(w, tokenInfo, db, rdb)
-	}
-}
-
-func authenticateTokenInfo(w http.ResponseWriter, tokenInfo *oauth2.Tokeninfo, db *sql.DB, rdb *redis.Client) {
-	if !tokenInfo.VerifiedEmail {
-		util.Error(w, http.StatusInternalServerError)
-		log.Warn("Oauth2 token info did not contain a verified email")
-	} else {
-		rows, err := db.Query("SELECT 1 FROM admins WHERE email = $1", tokenInfo.Email)
+		call := google.Tokeninfo()
+		call.IdToken(token)
+		info, err := call.Do()
 		if err != nil {
 			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to query postgres for admin email")
-		} else if !rows.Next() {
-			// no row was returned, so the email is not admin
-			util.Error(w, http.StatusUnauthorized)
-			log.Warn("Unauthorized authentication attempt")
+			log.WithError(err).Warn("Failed to get oauth2 id token info")
 		} else {
-			authenticateCreateSession(w, rdb)
+			if !info.VerifiedEmail {
+				util.Error(w, http.StatusInternalServerError)
+				log.Warn("Oauth2 token info did not contain a verified email")
+			} else {
+				authenticateEmail(w, info.Email, db, rdb)
+			}
 		}
+	}
+}
+
+func authenticateEmail(w http.ResponseWriter, email string, db *sql.DB, rdb *redis.Client) {
+	rows, err := db.Query("SELECT 1 FROM admins WHERE email = $1", email)
+	if err != nil {
+		util.Error(w, http.StatusInternalServerError)
+		log.WithError(err).Error("Failed to query postgres for admin email")
+	} else if !rows.Next() {
+		// no row was returned, so the email is not admin
+		util.Error(w, http.StatusUnauthorized)
+		log.Warn("Unauthorized authentication attempt")
+	} else {
+		authenticateCreateSession(w, rdb)
 	}
 }
 
@@ -110,7 +153,7 @@ func authenticateCreateSession(w http.ResponseWriter, rdb *redis.Client) {
 			log.WithError(err).Error("Failed to set session key in redis")
 		} else {
 			cookie := http.Cookie{
-				Name:   "fwends-session",
+				Name:   "fwends_session",
 				Value:  id,
 				MaxAge: int(sessionTTL.Seconds()),
 			}
