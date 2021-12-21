@@ -64,13 +64,13 @@ spec:
                 secretKeyRef:
                   name: fwends-redis
                   key: password
-            - name: OAUTH2_ENABLE
+            - name: AUTH_ENABLE
               valueFrom:
                 configMapKeyRef:
-                  name: fwends-oauth2
+                  name: fwends-auth
                   key: enable
-            - name: OAUTH2_CLIENT_ID
+            - name: GOOGLE_CLIENT_ID
               valueFrom:
                 configMapKeyRef:
-                  name: fwends-oauth2
-                  key: clientId
+                  name: fwends-auth
+                  key: googleClientId

@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: fwends-oauth2
+  name: fwends-auth
 data:
   # TODO: if these are not specified all authentication request will be trusted
   # https://developers.google.com/identity/sign-in/web/sign-in#create_authorization_credentials
   enable: ""
-  clientId: ""
+  googleClientId: ""
