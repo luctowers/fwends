@@ -10,18 +10,18 @@ import NotFound from "./NotFound";
 import { AuthProvider } from "./AuthProvider";
 
 function App() {
-    return (
-        <div className='m-4 sm:m-8'>
-            <AuthProvider>
-                <Header />
-                <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/pieces" element={<Pieces />} />
-                    <Route path="/packs" element={<Packs />} />
-                    <Route path='/404' element={<NotFound />} />
-                    <Route path="*" element={<Navigate replace to="/404" />} />
-                </Routes>
-            </AuthProvider>
-        </div>
-    );
+  return (
+    <div className='m-4 sm:m-8'>
+      <AuthProvider>
+        <Header />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/pieces" element={<Pieces />} />
+          <Route path="/packs" element={<Packs />} />
+          <Route path='/404' element={<NotFound />} />
+          <Route path="*" element={<Navigate replace to="/404" />} />
+        </Routes>
+      </AuthProvider>
+    </div>
+  );
 }
