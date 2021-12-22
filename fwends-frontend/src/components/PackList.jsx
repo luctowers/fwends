@@ -1,13 +1,15 @@
-export default Packs;
+export default PackList;
 
-import React from "react";
+import React, {useState, useEffect, useContext} from "react";
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
+import { AuthContext } from "./AuthProvider";
 
-function Packs() {
-    const [packs, setPacks] = React.useState([]);
+function PackList() {
+    const [packs, setPacks] = useState([]);
+    const {login,authenticated,pending,error} = useContext(AuthContext);
 
-    React.useEffect(async () => {
+    useEffect(async () => {
         let response = await fetch("/api/packs");
         let data = await response.json();
         setPacks(data);
@@ -44,12 +46,15 @@ function Packs() {
 
     return (
         <div className='grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 transition-colors'>
+            <h1>{authenticated ? "LOGGED IN" : "NOT LOGGED IN"}</h1>
+            <h1>{pending ? "PENDING" : "NOT PENDING"}</h1>
+            <h1>{error ? error.message : "NO ERROR"}</h1>
             {packElements}
-            <Link to='/packs#new'>
+            <button onClick={login}>
                 <div key='add' className='h-32 rounded-lg border border-stone-200 hover:bg-stone-200 text-center flex items-center justify-center'>
                     <p className='text-xl text-stone-400'>+</p>
                 </div>
-            </Link>
+            </button>
         </div>
     );
 }
