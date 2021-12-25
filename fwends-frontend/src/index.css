@@ -1,3 +1,20 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .button-frost {
+    @apply rounded;
+    @apply border;
+    @apply border-neutral;
+    @apply text-dark;
+    @apply fill-dark;
+    @apply transition-colors;
+    @apply flex;
+    @apply items-center;
+    @apply justify-center;
+    @apply text-center;
+    @apply hover:bg-frost;
+    @apply hover:border-seafoam;
+  }
+}

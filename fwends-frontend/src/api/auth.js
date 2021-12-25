@@ -1,52 +1,82 @@
-export { authenticate };
+import { useEffect, useState } from "react";
+import { lazyPromise, dynamicScriptLoad } from "./util";
 
-function AsyncSingleton(fn) {
-  let singleton;
-  return async function() {
-    if (singleton) {
-      return singleton;
-    } else {
-      singleton = fn.apply(null, arguments)
-        .then(result => {
-          singleton = undefined;
-          return result;
-        })
-        .catch(error => {
-          singleton = undefined;
-          throw error;
-        });
-    }
-    return singleton;
-  };
-}
+const eventTarget = new EventTarget();
 
-let fetchAuthInfo = AsyncSingleton(async function() {
-  let response = await fetch("/api/auth/");
-  if (response.ok) {
-    return response.json();
-  } else {
-    throw new Error("Failed to fetch auth info");
-  }
-});
+const authConfig = lazyPromise(() =>
+  fetch("/api/auth/config")
+    .then(response => {
+      if (response.ok) {
+        let body = response.json();
+        body.then();
+        return body;
+      } else {
+        throw new Error("Failed to load auth config");
+      }
+    })
+);
 
-let googleAuthenticate = AsyncSingleton(function(clientId) {
-  return new Promise((resolve) => {
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: response => {
-        resolve(response);
+function googleAuthClient() {
+  let clientId = authConfig()
+    .then(config => {
+      if (!config.enable || !config.services.google) {
+        throw new Error("Google authentication is not enabled");
+      } else {
+        return config.services.google;
       }
     });
-    window.google.accounts.id.prompt();
-  });
-});
+  return Promise.all([
+    clientId,
+    dynamicScriptLoad("https://accounts.google.com/gsi/client")
+  ])
+    .then(data =>
+      window.google.accounts.id.initialize({
+        client_id: data[0],
+        callback: console.log,
+        cancel_on_tap_outside: true
+      })
+    );
+}
 
-let authenticate = AsyncSingleton(async function() {
-  let info = await fetchAuthInfo();
-  if (!info.enable) {
-    return;
-  } else {
-    await googleAuthenticate(info.services.google);
-    return;
-  }
-});
+export function authPrompt() {
+  return googleAuthClient()
+    .then(() => {
+      window.google.accounts.id.prompt(notification => {
+        if (notification.isNotDisplayed()) {
+          eventTarget.dispatchEvent(new Event("prompt"));
+        }
+      });
+    })
+    .catch(console.error);
+}
+
+export function useAuthConfig() {
+  let [config, setConfig] = useState();
+  let [error, setError] = useState();
+  useEffect(() => {
+    authConfig()
+      .then(setConfig)
+      .catch(setError);
+  }, []);
+  return [config, error];
+}
+
+export function useGoogleAuthClient() {
+  let [initialized, setInitialized] = useState(false);
+  let [error, setError] = useState();
+  useEffect(() => {
+    googleAuthClient()
+      .then(() => setInitialized(true))
+      .catch(setError);
+  }, []);
+  return [initialized, error];
+}
+
+export function useAuthPrompt(callback, deps) {
+  useEffect(() => {
+    eventTarget.addEventListener("prompt", callback);
+    return () => {
+      eventTarget.removeEventListener("prompt", callback);
+    };
+  }, deps);
+}

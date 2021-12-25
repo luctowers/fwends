@@ -20,7 +20,7 @@ func main() {
 
 	router := httprouter.New()
 	router.POST("/api/auth/", api.Authenticate(db, rdb))
-	router.GET("/api/auth/", api.AuthInfo())
+	router.GET("/api/auth/config", api.AuthConfig())
 
 	log.Info("Starting http server")
 	log.Fatal(http.ListenAndServe(":80", router))

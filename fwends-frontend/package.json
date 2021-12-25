@@ -32,8 +32,8 @@
     "webpack-dev-server": "^4.6.0"
   },
   "dependencies": {
-    "js-cookie": "^3.0.1",
-    "prop-types": "^15.7.2",
+    "@primer/octicons-react": "^16.2.0",
+    "prop-types": "^15.8.0",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-router-dom": "6"

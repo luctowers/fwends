@@ -41,7 +41,7 @@ type authServices struct {
 	google *oauth2.Service
 }
 
-func AuthInfo() httprouter.Handle {
+func AuthConfig() httprouter.Handle {
 	info := authInfo{
 		Enable: len(os.Getenv("AUTH_ENABLE")) != 0,
 		Services: authServiceInfo{
