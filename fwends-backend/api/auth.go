@@ -16,6 +16,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/oauth2/v1"
+	"google.golang.org/api/option"
 )
 
 // TODO: make these configurable
@@ -73,7 +74,8 @@ func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 
 func openAuthServices() authServices {
 	services := authServices{}
-	google, err := oauth2.NewService(context.Background())
+	var httpClient = &http.Client{}
+	google, err := oauth2.NewService(context.Background(), option.WithHTTPClient(httpClient))
 	if err != nil {
 		log.WithError(err).Fatal("Failed to create Google oauth2 client")
 	}

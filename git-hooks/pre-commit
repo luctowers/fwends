@@ -16,6 +16,25 @@ do
     fi
 done
 
+cd $ROOT/fwends-backend
+GO_FILES=$(git diff --cached --name-only --diff-filter=ACM . | grep ".go$")
+if [ -n "${GO_FILES}" ]; then
+    go vet ./...
+    if [[ "$?" == 0 ]]; then
+        echo "Go vet passed"
+    else
+        echo "Go vet failed"
+        PASS=false
+    fi
+    staticcheck ./...
+    if [[ "$?" == 0 ]]; then
+        echo "Go staticcheck passed"
+    else
+        echo "Go staticcheck failed"
+        PASS=false
+    fi
+fi
+
 if ! $PASS; then
     exit 1
 else

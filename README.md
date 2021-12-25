@@ -36,6 +36,12 @@ https://nodejs.org/en/download/
 npm install eslint --global
 ```
 
+### Install staticcheck
+
+```shell
+go install honnef.co/go/tools/cmd/staticcheck@latest
+```
+
 ### Enable pre-commit hooks
 
 ```shell
