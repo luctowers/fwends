@@ -33,8 +33,8 @@ type authInfo struct {
 }
 
 type authBody struct {
-	token   string `json:"token"`
-	service string `json:"service"`
+	Token   string `json:"token"`
+	Service string `json:"service"`
 }
 
 type authServices struct {
@@ -73,8 +73,7 @@ func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 
 func openAuthServices() authServices {
 	services := authServices{}
-	var httpClient = &http.Client{}
-	google, err := oauth2.New(httpClient)
+	google, err := oauth2.NewService(context.Background())
 	if err != nil {
 		log.WithError(err).Fatal("Failed to create Google oauth2 client")
 	}
@@ -90,13 +89,13 @@ func authenticateBody(w http.ResponseWriter, r *http.Request, db *sql.DB, rdb *r
 		util.Error(w, http.StatusBadRequest)
 		log.WithError(err).Warn("Failed to decode authentication body")
 	} else {
-		switch body.service {
+		switch body.Service {
 		case "google":
-			authenticateGoogleToken(w, body.token, db, rdb, services.google)
+			authenticateGoogleToken(w, body.Token, db, rdb, services.google)
 		default:
 			util.Error(w, http.StatusBadRequest)
 			log.WithFields(log.Fields{
-				"service": body.service,
+				"service": body.Service,
 			}).Warn("Unrecognized auth service")
 		}
 	}
