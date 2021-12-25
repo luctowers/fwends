@@ -13,7 +13,7 @@ https://skaffold.dev/docs/quickstart/
 ### Run services with Skaffold
 
 ```shell
-skaffold dev
+skaffold dev -p dev
 ```
 
 ### Access on port 8080
