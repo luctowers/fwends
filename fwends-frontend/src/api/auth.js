@@ -16,7 +16,7 @@ const authConfig = lazyPromise(() =>
     })
 );
 
-function googleAuthClient() {
+const googleAuthClient = lazyPromise(() => {
   let clientId = authConfig()
     .then(config => {
       if (!config.enable || !config.services.google) {
@@ -33,10 +33,9 @@ function googleAuthClient() {
       window.google.accounts.id.initialize({
         client_id: data[0],
         callback: console.log,
-        cancel_on_tap_outside: true
       })
     );
-}
+});
 
 export function authPrompt() {
   return googleAuthClient()
