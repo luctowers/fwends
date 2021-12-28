@@ -22,6 +22,8 @@ import (
 // TODO: make these configurable
 const sessionIDSize = 32          // 32 bytes
 const sessionTTL = 24 * time.Hour // 1 day
+const sessionCookieName = "fwends_session"
+const sessionRedisPrefix = "session/"
 
 type authServiceInfo struct {
 	GoogleClientId string `json:"google,omitempty"`
@@ -56,6 +58,44 @@ func AuthConfig() httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(bytes)
+	}
+}
+
+func AuthVerify(rdb *redis.Client) httprouter.Handle {
+	if len(os.Getenv("AUTH_ENABLE")) == 0 {
+		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+			util.Error(w, http.StatusMisdirectedRequest)
+		}
+	} else {
+		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+			authenticated, err := authRequest(rdb, r)
+			if err != nil {
+				util.Error(w, http.StatusInternalServerError)
+				log.WithError(err).Error("Failed to get session key from redis")
+			} else {
+				w.Header().Set("Content-Type", "application/json")
+				if authenticated {
+					w.Write([]byte("true"))
+				} else {
+					w.Write([]byte("false"))
+				}
+			}
+		}
+	}
+}
+
+func authRequest(rdb *redis.Client, r *http.Request) (bool, error) {
+	session, err := r.Cookie(sessionCookieName)
+	if err != nil { // cookie not found
+		return false, nil
+	} else {
+		key := sessionRedisPrefix + session.Value
+		exists, err := rdb.Exists(context.Background(), key).Result()
+		if err != nil {
+			return false, err
+		} else {
+			return exists == 1, nil
+		}
 	}
 }
 
@@ -147,7 +187,7 @@ func authenticateCreateSession(w http.ResponseWriter, rdb *redis.Client) {
 		log.WithError(err).Error("Failed to create secure session id")
 	} else {
 		id := base64.StdEncoding.EncodeToString(id[:])
-		key := "session/" + id
+		key := sessionRedisPrefix + id
 		val, err := rdb.SetNX(context.Background(), key, true, sessionTTL).Result()
 		if err != nil || !val {
 			util.Error(w, http.StatusInternalServerError)
