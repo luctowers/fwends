@@ -4,7 +4,7 @@ import { lazyPromise, dynamicScriptLoad } from "./util";
 
 let authenticatedGlobal = false;
 const eventTarget = new EventTarget();
-const sessionPresenceCookie = "fwends_session_presence"
+const sessionPresenceCookie = "fwends_session_presence";
 
 if (Cookies.get(sessionPresenceCookie) === "true") {
   fetch("/api/auth")
