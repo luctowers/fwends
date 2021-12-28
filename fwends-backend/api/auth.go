@@ -22,7 +22,7 @@ import (
 // TODO: make these configurable
 const sessionIDSize = 32          // 32 bytes
 const sessionTTL = 24 * time.Hour // 1 day
-const sessionCookieName = "fwends_session"
+const sessionCookie = "fwends_session"
 const sessionRedisPrefix = "session/"
 
 type authServiceInfo struct {
@@ -85,7 +85,7 @@ func AuthVerify(rdb *redis.Client) httprouter.Handle {
 }
 
 func authRequest(rdb *redis.Client, r *http.Request) (bool, error) {
-	session, err := r.Cookie(sessionCookieName)
+	session, err := r.Cookie(sessionCookie)
 	if err != nil { // cookie not found
 		return false, nil
 	} else {
@@ -193,14 +193,14 @@ func authenticateCreateSession(w http.ResponseWriter, rdb *redis.Client) {
 			util.Error(w, http.StatusInternalServerError)
 			log.WithError(err).Error("Failed to set session key in redis")
 		} else {
-			cookie := http.Cookie{
-				Name:     "fwends_session",
+			sessionCookie := http.Cookie{
+				Name:     sessionCookie,
 				Value:    id,
 				MaxAge:   int(sessionTTL.Seconds()),
 				Secure:   true,
 				HttpOnly: true,
 			}
-			http.SetCookie(w, &cookie)
+			http.SetCookie(w, &sessionCookie)
 			util.Ok(w)
 		}
 	}
