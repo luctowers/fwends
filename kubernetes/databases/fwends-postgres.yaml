@@ -48,6 +48,11 @@ spec:
                 secretKeyRef:
                   name: fwends-postgres
                   key: adminPassword
+            - name: ADMIN_EMAILS
+              valueFrom:
+                configMapKeyRef:
+                  name: fwends-admin
+                  key: emails
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
