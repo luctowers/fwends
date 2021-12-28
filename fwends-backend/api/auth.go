@@ -115,7 +115,7 @@ func authenticateGoogleToken(w http.ResponseWriter, token string, db *sql.DB, rd
 			util.Error(w, http.StatusInternalServerError)
 			log.WithError(err).Warn("Failed to get oauth2 id token info")
 		} else {
-			if !info.VerifiedEmail {
+			if !info.EmailVerified {
 				util.Error(w, http.StatusInternalServerError)
 				log.Warn("Oauth2 token info did not contain a verified email")
 			} else {
@@ -154,9 +154,11 @@ func authenticateCreateSession(w http.ResponseWriter, rdb *redis.Client) {
 			log.WithError(err).Error("Failed to set session key in redis")
 		} else {
 			cookie := http.Cookie{
-				Name:   "fwends_session",
-				Value:  id,
-				MaxAge: int(sessionTTL.Seconds()),
+				Name:     "fwends_session",
+				Value:    id,
+				MaxAge:   int(sessionTTL.Seconds()),
+				Secure:   true,
+				HttpOnly: true,
 			}
 			http.SetCookie(w, &cookie)
 			util.Ok(w)
