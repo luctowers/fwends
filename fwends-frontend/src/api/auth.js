@@ -1,25 +1,28 @@
 import { useEffect, useState } from "react";
+import Cookies from "js-cookie";
 import { lazyPromise, dynamicScriptLoad } from "./util";
 
 let authenticatedGlobal = false;
 const eventTarget = new EventTarget();
+const sessionPresenceCookie = "fwends_session_presence"
 
-// TODO: prevent running this call for users that definetly aren't authenticated
-fetch("/api/auth")
-  .then(response => {
-    if (response.ok) {
-      return response.json();
-    } else {
-      throw new Error("Failed to verify session");
-    }
-  })
-  .then(status => {
-    if (!authenticatedGlobal && status) {
-      authenticatedGlobal = true;
-      eventTarget.dispatchEvent(new Event("update"));
-    }
-  })
-  .catch(console.error);
+if (Cookies.get(sessionPresenceCookie) === "true") {
+  fetch("/api/auth")
+    .then(response => {
+      if (response.ok) {
+        return response.json();
+      } else {
+        throw new Error("Failed to verify session");
+      }
+    })
+    .then(status => {
+      if (!authenticatedGlobal && status) {
+        authenticatedGlobal = true;
+        eventTarget.dispatchEvent(new Event("update"));
+      }
+    })
+    .catch(console.error);
+}
 
 const authConfig = lazyPromise(() =>
   fetch("/api/auth/config")
@@ -66,6 +69,7 @@ function handleGoogleCredentialResponse(response) {
   })
     .then(response => {
       if (response.ok) {
+        Cookies.set(sessionPresenceCookie, "true");
         authenticatedGlobal = true;
         eventTarget.dispatchEvent(new Event("update"));
       } else {
@@ -76,6 +80,7 @@ function handleGoogleCredentialResponse(response) {
 }
 
 export function authClear() {
+  Cookies.remove(sessionPresenceCookie);
   authenticatedGlobal = false;
   eventTarget.dispatchEvent(new Event("update"));
 }
