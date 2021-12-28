@@ -21,9 +21,11 @@ function App() {
             key={path} 
             to={path}
             className={
+              // apply bold to home/root
               (
                 path == "/" ? "font-bold" : ""
               ) +
+              // underline current location
               (
                 (
                   path == "/" ? 
