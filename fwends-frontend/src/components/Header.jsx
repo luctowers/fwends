@@ -8,7 +8,7 @@ import { LockIcon } from "@primer/octicons-react";
 function App() {
   const authenticated = useAuthStatus();
   return (
-    <div className='m-6 flex items-center justify-center sm:justify-start space-x-4 sm:space-x-6 md:space-x-8'>
+    <div className='p-6 flex items-center justify-center sm:justify-start space-x-4 sm:space-x-6 md:space-x-8'>
       <Link className='font-bold' to='/'>
         FWENDS
       </Link>

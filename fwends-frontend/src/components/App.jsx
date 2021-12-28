@@ -11,7 +11,7 @@ import AuthPrompt from "./AuthPrompt";
 
 function App() {
   return (
-    <div className='m-4 sm:m-8'>
+    <div className='px-4 sm:px-8 mx-auto max-w-screen-2xl'>
       <Header />
       <Routes>
         <Route path="/" element={<Home />} />
