@@ -6,7 +6,8 @@ import { TransitionGroup, CSSTransition } from "react-transition-group";
 import Header from "./Header";
 import Home from "./Home";
 import Pieces from "./Pieces";
-import Packs from "./Packs";
+import PackList from "./PackList";
+import PackView from "./PackView";
 import NotFound from "./NotFound";
 import AuthPrompt from "./AuthPrompt";
 
@@ -21,7 +22,8 @@ function App() {
             <Routes location={location}>
               <Route path="/" element={<Home />} />
               <Route path="/pieces" element={<Pieces />} />
-              <Route path="/packs" element={<Packs />} />
+              <Route path="/packs" element={<PackList />} />
+              <Route path="/packs/:packId" element={<PackView />} />
               <Route path='/404' element={<NotFound />} />
               <Route path="*" element={<Navigate replace to="/404" />} />
             </Routes>
