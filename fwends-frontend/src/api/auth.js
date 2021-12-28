@@ -100,7 +100,7 @@ export function authPrompt() {
 }
 
 export function useAuthStatus() {
-  let [authenticated, setAuthenticated] = useState(false);
+  let [authenticated, setAuthenticated] = useState(authenticatedGlobal);
   useEffect(() => {
     function handleUpdate() {
       setAuthenticated(authenticatedGlobal);
