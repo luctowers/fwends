@@ -45,7 +45,7 @@ function PackList() {
   );
 
   return (
-    <div className='grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 transition-colors'>
+    <div className='grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
       {packElements}
       <button onClick={authPrompt}>
         <div key='add' className='h-32 button-frost'>

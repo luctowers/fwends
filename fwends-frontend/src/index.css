@@ -17,4 +17,31 @@
     @apply hover:bg-frost;
     @apply hover:border-seafoam;
   }
+  .overlay {
+    @apply relative;
+  }
+  .overlay > * > * {
+    @apply absolute;
+    @apply inset-x-0;
+  }
+}
+
+.fade-enter {
+  @apply opacity-0;
+}
+.fade-enter-active {
+  @apply opacity-100;
+  @apply transition-opacity;
+  @apply duration-300;
+  @apply delay-150;
+  @apply ease-in-out;
+}
+.fade-exit {
+  @apply opacity-100;
+}
+.fade-exit-active {
+  @apply opacity-0;
+  @apply transition-opacity;
+  @apply duration-300;
+  @apply ease-in-out;
 }
