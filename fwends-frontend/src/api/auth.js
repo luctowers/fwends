@@ -86,18 +86,20 @@ export function authClear() {
 }
 
 export function authPrompt() {
-  return googleAuthClient()
-    .then(() => {
-      window.google.accounts.id.prompt(notification => {
-        if (notification.isNotDisplayed()) {
-          eventTarget.dispatchEvent(new Event("prompt"));
-        }
-      });
-    })
-    .catch(console.error);
+  if (!authenticatedGlobal) {
+    googleAuthClient()
+      .then(() => {
+        window.google.accounts.id.prompt(notification => {
+          if (notification.isNotDisplayed()) {
+            eventTarget.dispatchEvent(new Event("prompt"));
+          }
+        });
+      })
+      .catch(console.error);
+  }
 }
 
-export function useAuth() {
+export function useAuthStatus() {
   let [authenticated, setAuthenticated] = useState(false);
   useEffect(() => {
     function handleUpdate() {
