@@ -6,7 +6,6 @@ export default function PackView() {
   const {packId} = useParams();
   const titleRef = useRef();
   useEffect(() => {
-    console.log(titleRef);
     if (packId == "new" && titleRef.current) {
       titleRef.current.focus();
     }
