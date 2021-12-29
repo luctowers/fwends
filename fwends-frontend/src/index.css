@@ -24,6 +24,16 @@
     @apply absolute;
     @apply inset-x-0;
   }
+  .span-input {
+    @apply inline-block;
+    @apply appearance-none;
+    @apply focus:outline-none;
+  }
+  .span-input[placeholder]:empty:before {
+    content: attr(placeholder);
+    @apply text-neutral;
+    @apply cursor-text;
+  }
 }
 
 .fade-enter {
