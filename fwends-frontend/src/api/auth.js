@@ -33,13 +33,13 @@ const authConfig = fetch("/api/auth/config")
     }
   });
 
-  authConfig
-    .then(config => {
-      if (!config.enable) {
-        authenticatedGlobal = true;
-        eventTarget.dispatchEvent(new Event("update"));
-      }
-    })
+authConfig
+  .then(config => {
+    if (!config.enable) {
+      authenticatedGlobal = true;
+      eventTarget.dispatchEvent(new Event("update"));
+    }
+  });
 
 const googleAuthClient = lazyPromise(() => {
   let clientId = authConfig
