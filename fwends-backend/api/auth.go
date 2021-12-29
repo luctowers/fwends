@@ -46,7 +46,7 @@ type authServices struct {
 
 func AuthConfig() httprouter.Handle {
 	info := authInfo{
-		Enable: len(os.Getenv("AUTH_ENABLE")) != 0,
+		Enable: os.Getenv("AUTH_ENABLE") == "true",
 		Services: authServiceInfo{
 			GoogleClientId: os.Getenv("GOOGLE_CLIENT_ID"),
 		},
@@ -62,7 +62,7 @@ func AuthConfig() httprouter.Handle {
 }
 
 func AuthVerify(rdb *redis.Client) httprouter.Handle {
-	if len(os.Getenv("AUTH_ENABLE")) == 0 {
+	if os.Getenv("AUTH_ENABLE") != "true" {
 		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			util.Error(w, http.StatusMisdirectedRequest)
 		}
@@ -100,7 +100,7 @@ func authRequest(rdb *redis.Client, r *http.Request) (bool, error) {
 }
 
 func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
-	if len(os.Getenv("AUTH_ENABLE")) == 0 {
+	if os.Getenv("AUTH_ENABLE") != "true" {
 		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			util.Error(w, http.StatusMisdirectedRequest)
 		}

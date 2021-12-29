@@ -24,19 +24,25 @@ if (Cookies.get(sessionPresenceCookie) === "true") {
     .catch(console.error);
 }
 
-const authConfig = lazyPromise(() =>
-  fetch("/api/auth/config")
-    .then(response => {
-      if (response.ok) {
-        return response.json();
-      } else {
-        throw new Error("Failed to load auth config");
+const authConfig = fetch("/api/auth/config")
+  .then(response => {
+    if (response.ok) {
+      return response.json();
+    } else {
+      throw new Error("Failed to load auth config");
+    }
+  });
+
+  authConfig
+    .then(config => {
+      if (!config.enable) {
+        authenticatedGlobal = true;
+        eventTarget.dispatchEvent(new Event("update"));
       }
     })
-);
 
 const googleAuthClient = lazyPromise(() => {
-  let clientId = authConfig()
+  let clientId = authConfig
     .then(config => {
       if (!config.enable || !config.services.google) {
         throw new Error("Google authentication is not enabled");
@@ -117,7 +123,7 @@ export function useAuthConfig() {
   let [config, setConfig] = useState();
   let [error, setError] = useState();
   useEffect(() => {
-    authConfig()
+    authConfig
       .then(setConfig)
       .catch(setError);
   }, []);

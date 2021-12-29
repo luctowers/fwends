@@ -2,11 +2,12 @@ export default App;
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useAuthStatus, authClear } from "../api/auth";
+import { useAuthStatus, authClear, useAuthConfig } from "../api/auth";
 import { LockIcon } from "@primer/octicons-react";
 
 function App() {
   const authenticated = useAuthStatus();
+  const [authConfig] = useAuthConfig();
   const location = useLocation();
   const navItems = [
     ["/", "FWENDS"],
@@ -38,7 +39,7 @@ function App() {
           </Link>
         )
       }
-      {authenticated && 
+      {authenticated && authConfig && authConfig.enable &&
         <button onClick={authClear}>
           <LockIcon />
         </button>
