@@ -201,7 +201,7 @@ func authenticateCreateSession(w http.ResponseWriter, rdb *redis.Client) {
 				HttpOnly: true,
 			}
 			http.SetCookie(w, &sessionCookie)
-			util.Ok(w)
+			util.OK(w)
 		}
 	}
 }
