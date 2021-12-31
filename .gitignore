@@ -4,3 +4,5 @@ target/
 kubernetes/custom/*
 !kubernetes/custom/README.md
 .DS_Store
+.pytest_cache
+__pycache__
