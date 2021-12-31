@@ -3,6 +3,7 @@ package main
 import (
 	"fwends-backend/api"
 	"fwends-backend/connections"
+	"fwends-backend/util"
 	"net/http"
 
 	log "github.com/sirupsen/logrus"
@@ -18,11 +19,23 @@ func main() {
 	}
 	rdb := connections.OpenRedis()
 
+	podIndex, err := util.PodIndex()
+	if err != nil {
+		log.WithError(err).Fatal("Failed to determine pod index")
+	}
+	snowflake, err := util.NewSnowflakeGenerator(podIndex)
+	if err != nil {
+		log.WithError(err).Fatal("Failed to create snowflake id generator")
+	}
+
 	router := httprouter.New()
 	router.POST("/api/auth", api.Authenticate(db, rdb))
 	router.GET("/api/auth", api.AuthVerify(rdb))
 	router.GET("/api/auth/config", api.AuthConfig())
+	router.POST("/api/packs/", api.CreatePack(db, snowflake))
 
-	log.Info("Starting http server")
+	log.WithFields(log.Fields{
+		"podIndex": podIndex,
+	}).Info("Starting http server")
 	log.Fatal(http.ListenAndServe(":80", router))
 }

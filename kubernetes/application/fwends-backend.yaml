@@ -12,16 +12,15 @@ spec:
     app: fwends-backend
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: fwends-backend
-  labels:
-    app: fwends-backend
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: fwends-backend
+  serviceName: fwends-backend
   template:
     metadata:
       labels:
