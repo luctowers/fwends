@@ -14,15 +14,16 @@ import (
 Example curl commands:
 
 curl -X POST http://localhost:8080/api/packs/ -d '{"title":"Test Pack"}'
+curl -X GET http://localhost:8080/api/packs/6882582496895041536
 curl -X PUT http://localhost:8080/api/packs/6882582496895041536 -d '{"title":"Updated Test Pack"}'
-curl -X DELETE http://localhost:8080/api/packs/6882582496895041536'
+curl -X DELETE http://localhost:8080/api/packs/6882582496895041536
 */
 
 type packBody struct {
 	Title string `json:"title"`
 }
 
-type packResponse struct {
+type idResponse struct {
 	ID int64 `json:"id,string"`
 }
 
@@ -45,9 +46,37 @@ func CreatePack(db *sql.DB, snowflake *util.SnowflakeGenerator) httprouter.Handl
 				log.WithError(err).Error("Failed to insert new pack")
 			} else {
 				w.Header().Set("Content-Type", "application/json")
-				var response packResponse
+				var response idResponse
 				response.ID = id
 				json.NewEncoder(w).Encode(response)
+			}
+		}
+	}
+}
+
+func GetPack(db *sql.DB) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		id := ps.ByName("id")
+		rows, err := db.Query("SELECT title FROM packs WHERE id = $1;", id)
+		if err != nil {
+			util.Error(w, http.StatusInternalServerError)
+			log.WithError(err).Error("Failed to get pack")
+		} else {
+			defer rows.Close()
+			if !rows.Next() {
+				// no row was returned
+				util.Error(w, http.StatusNotFound)
+				log.Warn("Failed to get pack, it probably doesn't exist")
+			} else {
+				var body packBody
+				err := rows.Scan(&body.Title)
+				if err != nil {
+					util.Error(w, http.StatusInternalServerError)
+					log.WithError(err).Error("Failed to scan pack")
+				} else {
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode(body)
+				}
 			}
 		}
 	}
