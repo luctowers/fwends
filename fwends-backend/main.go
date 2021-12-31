@@ -34,6 +34,7 @@ func main() {
 	router.GET("/api/auth/config", api.AuthConfig())
 	router.POST("/api/packs/", api.CreatePack(db, snowflake))
 	router.PUT("/api/packs/:id", api.UpdatePack(db))
+	router.DELETE("/api/packs/:id", api.DeletePack(db))
 
 	log.WithFields(log.Fields{
 		"podIndex": podIndex,
