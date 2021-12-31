@@ -170,12 +170,15 @@ func authenticateEmail(w http.ResponseWriter, email string, db *sql.DB, rdb *red
 	if err != nil {
 		util.Error(w, http.StatusInternalServerError)
 		log.WithError(err).Error("Failed to query postgres for admin email")
-	} else if !rows.Next() {
-		// no row was returned, so the email is not admin
-		util.Error(w, http.StatusUnauthorized)
-		log.Warn("Unauthorized authentication attempt")
 	} else {
-		authenticateCreateSession(w, rdb)
+		defer rows.Close()
+		if !rows.Next() {
+			// no row was returned, so the email is not admin
+			util.Error(w, http.StatusUnauthorized)
+			log.Warn("Unauthorized authentication attempt")
+		} else {
+			authenticateCreateSession(w, rdb)
+		}
 	}
 }
 
