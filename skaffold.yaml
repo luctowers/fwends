@@ -4,6 +4,7 @@ build:
   tagPolicy:
     gitCommit: {}
   local:
+    push: true
     concurrency: 4
     tryImportMissing: true
   artifacts:
