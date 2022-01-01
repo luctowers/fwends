@@ -146,7 +146,7 @@ jobs:
       - name: Run skaffold pipeline
         run: |
           skaffold run --port-forward --tail | tee ./skaffold-output.txt &
-          echo "::set-env name=SKAFFOLD_PID::$!"
+          echo "SKAFFOLD_PID=$!" >> $GITHUB_ENV
           sleep 120
       - name: Run Integration tests
         working-directory: ./fwends-test
