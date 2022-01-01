@@ -1,0 +1,46 @@
+name: Integration Tests
+on: [push]
+jobs:
+  Explore-GitHub-Actions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install skaffold
+        run: |
+          curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
+          sudo install skaffold /usr/local/bin/
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install pipenv
+        run: |
+          python -m pip install --upgrade pipenv wheel
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Install python dependencies
+        working-directory: ./fwends-test
+        run: |
+          python -m pipenv install
+      - name: Start minikube cluster
+        run: |
+          minikube start
+      - name: Build skaffold pipeline
+        run: |
+          skaffold build
+      - name: Run skaffold pipeline
+        run: |
+          skaffold run --port-forward &
+      # TODO: allow integration tests to poll, so this sleep isn't needed
+      - name: Sleep to allow containers to start
+        run: |
+          sleep 5
+      - name: Run Integration tests
+        working-directory: ./fwends-test
+        run: |
+          python -m pipenv run pytest
+      - name: Delete skaffold pipeline
+        run: |
+          skaffold delete
+      - name: Delete minikube cluster
+        run: |
+          minikube delete
+      # TODO: find a way to cleanup skaffold orphan process
