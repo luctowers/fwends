@@ -5,6 +5,7 @@ build:
     sha256: {}
   local:
     concurrency: 4
+    tryImportMissing: true
   artifacts:
     - image: fwends-frontend
       context: fwends-frontend

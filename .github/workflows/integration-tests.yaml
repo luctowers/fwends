@@ -3,6 +3,8 @@ on: [push]
 jobs:
   Explore-GitHub-Actions:
     runs-on: ubuntu-latest
+    env:
+      SKAFFOLD_DEFAULT_REPO: ghcr.io/${{ github.repository }}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v2
@@ -40,7 +42,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build skaffold pipeline
         run: |
-          skaffold build --default-repo=ghcr.io/${{ github.repository }}
+          skaffold build
       # TODO: allow integration tests to poll, so this sleep isn't needed
       - name: Run skaffold pipeline
         run: |
