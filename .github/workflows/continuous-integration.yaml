@@ -1,7 +1,7 @@
 name: Continuous Integration
 on: [push]
 jobs:
-  wends-frontend:
+  fwends-frontend:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
