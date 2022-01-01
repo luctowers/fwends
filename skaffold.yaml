@@ -1,8 +1,13 @@
 apiVersion: skaffold/v2beta26
 kind: Config
 build:
+  tagPolicy:
+    gitCommit:
+      variant: CommitSha
   local:
+    push: true
     concurrency: 4
+    tryImportMissing: true
   artifacts:
     - image: fwends-frontend
       context: fwends-frontend
