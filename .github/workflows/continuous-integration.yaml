@@ -145,7 +145,8 @@ jobs:
       # TODO: allow integration tests to poll, so this sleep isn't needed
       - name: Run skaffold pipeline
         run: |
-          skaffold run --port-forward --tail | tee ./skaffold-output.txt & \
+          skaffold run --port-forward --tail | tee ./skaffold-output.txt &
+          echo "::set-env name=SKAFFOLD_PID::$!"
           sleep 120
       - name: Run Integration tests
         working-directory: ./fwends-test
@@ -156,10 +157,13 @@ jobs:
         with:
           name: skaffold-output
           path: ./skaffold-output.txt
+      - name: Interrupt skaffold process
+        run: |
+          kill -SIGINT $SKAFFOLD_PID
+          wait $SKAFFOLD_PID
       - name: Delete skaffold pipeline
         run: |
           skaffold delete
       - name: Delete minikube cluster
         run: |
           minikube delete
-      # TODO: find a way to cleanup skaffold orphan process
