@@ -11,7 +11,10 @@ jobs:
       - name: Install pipenv
         run: |
           python -m pip install --upgrade pipenv wheel
+      - name: Check out repository code
+        uses: actions/checkout@v2
       - name: Install python dependencies
+        working-directory: ./fwends-test
         run: |
           python -m pipenv install
       - name: Run skaffold pipeline
