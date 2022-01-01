@@ -28,13 +28,19 @@ jobs:
       - name: Cache skaffold pipeline
         uses: actions/cache@v2
         with:
-          path: ~/.skaffold/
+          path: ~/.skaffold/cache
           key: commit-${{ github.sha }}
           restore-keys: |
             commit-
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build skaffold pipeline
         run: |
-          skaffold build
+          skaffold build --default-repo=ghcr.io/${{ github.repository }}
       # TODO: allow integration tests to poll, so this sleep isn't needed
       - name: Run skaffold pipeline
         run: |
