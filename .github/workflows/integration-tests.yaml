@@ -26,9 +26,12 @@ jobs:
       - name: Run skaffold pipeline
         run: |
           skaffold run
+      - name: Run Integration tests
+        run: |
+          python -m pipenv run pytest
       - name: Delete skaffold pipeline
         run: |
-          skaffold Delete
+          skaffold delete
       - name: Delete minikube cluster
         run: |
           minikube delete
