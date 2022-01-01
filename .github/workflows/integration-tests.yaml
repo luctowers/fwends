@@ -8,6 +8,12 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v2
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Install skaffold
         run: |
           curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
@@ -24,9 +30,6 @@ jobs:
         working-directory: ./fwends-test
         run: |
           pipenv install
-      - name: Start minikube cluster
-        run: |
-          minikube start
       - name: Cache skaffold pipeline
         uses: actions/cache@v2
         with:
@@ -34,15 +37,12 @@ jobs:
           key: commit-${{ github.sha }}
           restore-keys: |
             commit-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build skaffold pipeline
         run: |
           skaffold build
+      - name: Start minikube cluster
+        run: |
+          minikube start
       # TODO: allow integration tests to poll, so this sleep isn't needed
       - name: Run skaffold pipeline
         run: |
