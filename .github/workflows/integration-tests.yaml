@@ -8,6 +8,9 @@ jobs:
         run: |
           curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
           sudo install skaffold /usr/local/bin/
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
       - name: Install pipenv
         run: |
           python -m pip install --upgrade pipenv wheel
