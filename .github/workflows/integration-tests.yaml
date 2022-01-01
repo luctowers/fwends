@@ -25,10 +25,10 @@ jobs:
           minikube start
       - name: Run skaffold pipeline
         run: |
-          skaffold run
+          skaffold dev --port-forward
       - name: Sleep to allow containers to start
         run: |
-          sleep 60
+          sleep 10
       - name: Run Integration tests
         working-directory: ./fwends-test
         run: |
