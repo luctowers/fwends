@@ -2,7 +2,8 @@ apiVersion: skaffold/v2beta26
 kind: Config
 build:
   tagPolicy:
-    gitCommit: {}
+    gitCommit:
+      variant: CommitSha
   local:
     push: true
     concurrency: 4
