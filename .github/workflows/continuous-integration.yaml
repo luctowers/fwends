@@ -1,8 +1,42 @@
-name: Integration Tests
+name: Continuous Integration
 on: [push]
 jobs:
-  Explore-GitHub-Actions:
+  build:
     runs-on: ubuntu-latest
+    env:
+      SKAFFOLD_DEFAULT_REPO: ghcr.io/${{ github.repository }}
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install skaffold
+        run: |
+          curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
+          sudo install skaffold /usr/local/bin/
+      - name: Cache skaffold pipeline
+        uses: actions/cache@v2
+        with:
+          path: ~/.skaffold/cache
+          key: commit-${{ github.sha }}
+          restore-keys: |
+            commit-
+      - name: Build skaffold pipeline
+        run: |
+          skaffold build
+      - name: Upload skaffold cache
+        uses: actions/upload-artifact@v2
+        with:
+          name: skaffold-cache
+          path: ~/.skaffold/cache
+      # TODO: find a way to cleanup skaffold orphan process
+  test:
+    runs-on: ubuntu-latest
+    needs: build
     env:
       SKAFFOLD_DEFAULT_REPO: ghcr.io/${{ github.repository }}
     steps:
@@ -30,16 +64,10 @@ jobs:
         working-directory: ./fwends-test
         run: |
           pipenv install
-      - name: Cache skaffold pipeline
-        uses: actions/cache@v2
+      - name: Download skaffold cache
+        uses: actions/download-artifact@v2
         with:
-          path: ~/.skaffold/cache
-          key: commit-${{ github.sha }}
-          restore-keys: |
-            commit-
-      - name: Build skaffold pipeline
-        run: |
-          skaffold build
+          name: skaffold-cache
       - name: Start minikube cluster
         run: |
           minikube start
@@ -58,4 +86,3 @@ jobs:
       - name: Delete minikube cluster
         run: |
           minikube delete
-      # TODO: find a way to cleanup skaffold orphan process
