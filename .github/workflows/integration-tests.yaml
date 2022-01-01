@@ -27,6 +27,7 @@ jobs:
         run: |
           skaffold run
       - name: Run Integration tests
+        working-directory: ./fwends-test
         run: |
           python -m pipenv run pytest
       - name: Delete skaffold pipeline
