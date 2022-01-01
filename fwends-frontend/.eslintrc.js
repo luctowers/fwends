@@ -24,6 +24,7 @@ module.exports = {
 	],
 	"rules": {
 		"react/prop-types": 0,
+		"jsx-quotes": ["error", "prefer-double"],
 		"indent": [
 			"error",
 			"tab"

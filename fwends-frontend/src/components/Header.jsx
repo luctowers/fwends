@@ -15,7 +15,7 @@ function App() {
 		["/packs", "PACKS"],
 	];
 	return (
-		<div className='p-6 flex items-center justify-center sm:justify-start space-x-4 sm:space-x-6 md:space-x-8 underline-offset-1'>
+		<div className="p-6 flex items-center justify-center sm:justify-start space-x-4 sm:space-x-6 md:space-x-8 underline-offset-1">
 			{
 				navItems.map(([path,label]) =>
 					<Link

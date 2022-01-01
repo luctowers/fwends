@@ -13,9 +13,9 @@ export default function PackView() {
 	if (packId == "new") {
 		return (
 			<p className="text-xl tracking-wide">
-				<Link to='/packs' className="hover:underline decoration-1">packs</Link>
+				<Link to="/packs" className="hover:underline decoration-1">packs</Link>
 				{" / "}
-				<SpanInput ref={titleRef} placeholder='Title' />
+				<SpanInput ref={titleRef} placeholder="Title" />
 			</p>
 		);
 	}

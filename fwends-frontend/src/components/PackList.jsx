@@ -18,9 +18,9 @@ function PackList() {
 	}
 
 	return (
-		<div className='grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
+		<div className="grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 			<button onClick={handleNewPack}>
-				<div key='add' className='h-32 button-frost'>
+				<div key="add" className="h-32 button-frost">
 					<PlusIcon className="w-5 h-5" />
 				</div>
 			</button>
