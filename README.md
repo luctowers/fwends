@@ -42,6 +42,10 @@ npm install eslint --global
 go install honnef.co/go/tools/cmd/staticcheck@latest
 ```
 
+### Install pylint
+
+https://pylint.org/#install
+
 ### Enable pre-commit hooks
 
 ```shell

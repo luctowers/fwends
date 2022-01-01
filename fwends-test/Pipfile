@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 pytest = "~=6.2"
+requests = "~=2.26"
 
 [dev-packages]
 
