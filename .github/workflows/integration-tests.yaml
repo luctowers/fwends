@@ -47,7 +47,7 @@ jobs:
       - name: Run skaffold pipeline
         run: |
           skaffold run --port-forward & \
-          sleep 60
+          sleep 120
       - name: Run Integration tests
         working-directory: ./fwends-test
         run: |
