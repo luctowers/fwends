@@ -35,13 +35,11 @@ jobs:
       - name: Build skaffold pipeline
         run: |
           skaffold build --cache-artifacts=true --cache-file=~/.skaffold/cache
+      # TODO: allow integration tests to poll, so this sleep isn't needed
       - name: Run skaffold pipeline
         run: |
-          skaffold run --port-forward &
-      # TODO: allow integration tests to poll, so this sleep isn't needed
-      - name: Sleep to allow containers to start
-        run: |
-          sleep 30
+          skaffold run --port-forward & \
+          sleep 10
       - name: Run Integration tests
         working-directory: ./fwends-test
         run: |
