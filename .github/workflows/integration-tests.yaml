@@ -21,7 +21,7 @@ jobs:
       - name: Install python dependencies
         working-directory: ./fwends-test
         run: |
-          python -m pipenv install
+          pipenv install
       - name: Start minikube cluster
         run: |
           minikube start
@@ -46,7 +46,7 @@ jobs:
       - name: Run Integration tests
         working-directory: ./fwends-test
         run: |
-          python -m pipenv run pytest
+          pipenv run pytest
       - name: Delete skaffold pipeline
         run: |
           skaffold delete
