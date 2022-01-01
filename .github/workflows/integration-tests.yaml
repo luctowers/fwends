@@ -28,7 +28,7 @@ jobs:
       - name: Cache skaffold pipeline
         uses: actions/cache@v2
         with:
-          path: ~/.skaffold
+          path: ~/.skaffold/
           key: commit-${{ github.sha }}
           restore-keys: |
             commit-
