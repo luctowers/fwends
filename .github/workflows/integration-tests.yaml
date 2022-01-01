@@ -25,7 +25,7 @@ jobs:
           minikube start
       - name: Run skaffold pipeline
         run: |
-          skaffold run --tail
+          skaffold run
       - name: Sleep to allow containers to start
         run: |
           sleep 60
