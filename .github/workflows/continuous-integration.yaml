@@ -145,12 +145,17 @@ jobs:
       # TODO: allow integration tests to poll, so this sleep isn't needed
       - name: Run skaffold pipeline
         run: |
-          skaffold run --port-forward & \
+          skaffold run --port-forward --tail | tee ./skaffold-output.txt & \
           sleep 120
       - name: Run Integration tests
         working-directory: ./fwends-test
         run: |
           pipenv run pytest
+      - name: Upload skaffold output
+        uses: actions/upload-artifact@v2
+        with:
+          name: skaffold-output
+          path: ./skaffold-output.txt
       - name: Delete skaffold pipeline
         run: |
           skaffold delete
