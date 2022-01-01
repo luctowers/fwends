@@ -20,9 +20,15 @@ jobs:
         working-directory: ./fwends-test
         run: |
           python -m pipenv install
+      - name: Start minikube cluster
+        run: |
+          minikube start
       - name: Run skaffold pipeline
         run: |
           skaffold run
       - name: Delete skaffold pipeline
         run: |
           skaffold Delete
+      - name: Delete minikube cluster
+        run: |
+          minikube delete
