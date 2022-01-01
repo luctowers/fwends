@@ -4,6 +4,8 @@ jobs:
   Explore-GitHub-Actions:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
       - name: Install skaffold
         run: |
           curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
@@ -11,8 +13,6 @@ jobs:
       - name: Install pipenv
         run: |
           pipx install pipenv
-      - name: Check out repository code
-        uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
           python-version: '3.9'
