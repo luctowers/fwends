@@ -155,7 +155,9 @@ jobs:
       - name: Interrupt skaffold process
         run: |
           kill -SIGINT $SKAFFOLD_PID
-          wait $SKAFFOLD_PID
+          while kill -0 $SKAFFOLD_PID; do 
+            sleep 1
+          done
       - name: Upload skaffold output
         uses: actions/upload-artifact@v2
         with:
