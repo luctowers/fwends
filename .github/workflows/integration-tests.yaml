@@ -8,12 +8,14 @@ jobs:
         run: |
           curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
           sudo install skaffold /usr/local/bin/
+      - name: Install pipenv
+        run: |
+          pipx install pipenv
       - uses: actions/setup-python@v2
         with:
           python-version: '3.9'
-      - name: Install pipenv
-        run: |
-          python -m pip install --upgrade pipenv wheel
+          cache: 'pipenv'
+          cache-dependency-path: fwends-test/Pipfile.lock
       - name: Check out repository code
         uses: actions/checkout@v2
       - name: Install python dependencies
@@ -23,9 +25,17 @@ jobs:
       - name: Start minikube cluster
         run: |
           minikube start
+      - name: Cache skaffold pipeline
+        uses: actions/cache@v2
+        with:
+          path: ~/.skaffold/cache
+          key: commit-${{ github.sha }}
+          restore-keys: |
+            commit-${{ github.sha }}
+            commit-
       - name: Build skaffold pipeline
         run: |
-          skaffold build
+          skaffold build --cache-artifacts=true --cache-file=~/.skaffold/cache
       - name: Run skaffold pipeline
         run: |
           skaffold run --port-forward &
