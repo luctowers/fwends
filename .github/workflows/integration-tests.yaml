@@ -22,19 +22,19 @@ jobs:
         working-directory: ./fwends-test
         run: |
           pipenv install
-      - name: Start minikube cluster
-        run: |
-          minikube start
       - name: Cache skaffold pipeline
         uses: actions/cache@v2
         with:
-          path: ~/.skaffold/cache
+          path: ~/.skaffold
           key: commit-${{ github.sha }}
           restore-keys: |
             commit-
       - name: Build skaffold pipeline
         run: |
-          skaffold build --cache-artifacts=true --cache-file=~/.skaffold/cache
+          skaffold build
+      - name: Start minikube cluster
+        run: |
+          minikube start
       # TODO: allow integration tests to poll, so this sleep isn't needed
       - name: Run skaffold pipeline
         run: |
