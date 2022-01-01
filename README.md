@@ -1,4 +1,4 @@
-# FWENDS 2
+# FWENDS
 
 ## Development Environment (Required)
 
