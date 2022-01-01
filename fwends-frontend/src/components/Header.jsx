@@ -10,7 +10,7 @@ function App() {
 	const [authConfig] = useAuthConfig();
 	const location = useLocation();
 	const navItems = [
-		["/", "FWENDS"],
+		["/", "FWENDS2"],
 		["/pieces", "PIECES"],
 		["/packs", "PACKS"],
 	];
