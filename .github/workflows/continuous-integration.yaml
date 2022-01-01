@@ -152,15 +152,15 @@ jobs:
         working-directory: ./fwends-test
         run: |
           pipenv run pytest
+      - name: Interrupt skaffold process
+        run: |
+          kill -SIGINT $SKAFFOLD_PID
+          wait $SKAFFOLD_PID
       - name: Upload skaffold output
         uses: actions/upload-artifact@v2
         with:
           name: skaffold-output
           path: ./skaffold-output.txt
-      - name: Interrupt skaffold process
-        run: |
-          kill -SIGINT $SKAFFOLD_PID
-          wait $SKAFFOLD_PID
       - name: Delete skaffold pipeline
         run: |
           skaffold delete
