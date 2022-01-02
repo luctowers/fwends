@@ -150,22 +150,27 @@ jobs:
           sleep 120
       - name: Run Integration tests
         working-directory: ./fwends-test
+        continue-on-error: true
         run: |
           pipenv run pytest
       - name: Interrupt skaffold process
+        if: always()
         run: |
-          kill -SIGINT $SKAFFOLD_PID
-          while kill -0 $SKAFFOLD_PID; do 
+          kill -SIGTERM $SKAFFOLD_PID
+          while kill -0 $SKAFFOLD_PID; do
             sleep 1
           done
       - name: Upload skaffold output
+        if: always()
         uses: actions/upload-artifact@v2
         with:
           name: skaffold-output
           path: ./skaffold-output.txt
       - name: Delete skaffold pipeline
+        if: always()
         run: |
           skaffold delete
       - name: Delete minikube cluster
+        if: always()
         run: |
           minikube delete
