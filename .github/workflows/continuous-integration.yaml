@@ -152,7 +152,7 @@ jobs:
         working-directory: ./fwends-test
         run: |
           pipenv run pytest
-      - name: Interrupt skaffold process
+      - name: Terminate skaffold process
         if: always()
         run: |
           kill -SIGTERM $SKAFFOLD_PID
