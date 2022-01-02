@@ -152,6 +152,7 @@ jobs:
         working-directory: ./fwends-test
         run: |
           pipenv run pytest
+          exit 1
       - name: Terminate skaffold process
         if: always()
         run: |
