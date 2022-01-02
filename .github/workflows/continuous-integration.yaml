@@ -147,11 +147,10 @@ jobs:
         run: |
           skaffold run --port-forward --tail | tee ./skaffold-output.txt &
           echo "SKAFFOLD_PID=$!" >> $GITHUB_ENV
-          sleep 120
       - name: Run Integration tests
         working-directory: ./fwends-test
         run: |
-          pipenv run pytest
+          pipenv run pytest --health-check-enable --health-check-timeout 120
       - name: Terminate skaffold process
         if: always()
         run: |
