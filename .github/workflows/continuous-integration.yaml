@@ -150,7 +150,6 @@ jobs:
           sleep 120
       - name: Run Integration tests
         working-directory: ./fwends-test
-        continue-on-error: true
         run: |
           pipenv run pytest
       - name: Interrupt skaffold process
