@@ -9,7 +9,7 @@ import (
 // see https://en.wikipedia.org/wiki/Snowflake_ID
 
 // TODO: make these configurable
-const timestampBits = 41
+const _timestampBits = 41
 const machineBits = 10
 const sequenceBits = 12
 
