@@ -5,9 +5,7 @@ build:
     gitCommit:
       variant: CommitSha
   local:
-    push: true
     concurrency: 4
-    tryImportMissing: true
   artifacts:
     - image: fwends-frontend
       context: fwends-frontend
