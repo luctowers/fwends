@@ -4,11 +4,13 @@ metadata:
   name: fwends-redis
 type: Opaque
 data:
-  password: cmVkaXNwYXNzd29yZA== # TODO: replace with a secure password
+  # TODO: replace with a secure password
+  password: cmVkaXNwYXNzd29yZA==
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: fwends-redis
 data:
-  host: fwends-redis # TODO: replace if using external redis
+  # TODO: replace if using external redis
+  host: fwends-redis-0.fwends-redis.default.svc.cluster.local
