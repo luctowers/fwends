@@ -15,7 +15,7 @@ jobs:
           context: fwends-frontend
           image: ${{ github.repository }}/fwends-frontend
           cache-tag: ${{ github.ref_name }}-latest
-          ouput-tag: ${{ github.sha }}
+          output-tag: ${{ github.sha }}
   fwends-nginx:
     runs-on: ubuntu-latest
     needs: fwends-frontend 
