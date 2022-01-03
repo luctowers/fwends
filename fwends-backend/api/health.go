@@ -22,7 +22,7 @@ type healthServiceInfo struct {
 
 func HealthCheck(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		cdb = make(chan error)
+		cdb := make(chan error)
 		crdb := make(chan *redis.StatusCmd)
 		go func() {
 			cdb <- db.Ping()
