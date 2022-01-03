@@ -22,7 +22,7 @@ jobs:
           tags: |
             ghcr.io/${{github.repository}}/fwends-frontend:${{ github.sha }}
             ghcr.io/${{github.repository}}/fwends-frontend:${{ github.ref_name }}-latest
-          cache-from: type=registry,ref=ghcr.io/${{github.repository}}/fwends-frontend:ref-${{ github.ref_name }}-latest
+          cache-from: type=registry,ref=ghcr.io/${{github.repository}}/fwends-frontend:${{ github.ref_name }}-latest
           cache-to: type=inline
   fwends-nginx:
     runs-on: ubuntu-latest
