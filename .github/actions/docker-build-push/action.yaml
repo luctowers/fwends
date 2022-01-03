@@ -16,9 +16,6 @@ inputs:
     required: true
   output-tag:
     required: true
-outputs:
-  ref:
-    value: ${{ inputs.registry }}/${{ inputs.image }}:${{ inputs.sha }}
 runs:
   using: "composite"
   steps:
