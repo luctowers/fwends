@@ -12,7 +12,7 @@ import (
 )
 
 type healthInfo struct {
-	Services healthServiceInfo `json:"services"`
+	Services healthServiceInfo `json:"services"` 
 }
 
 type healthServiceInfo struct {
