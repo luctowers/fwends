@@ -1,7 +1,7 @@
 name: Linting
 on: [push]
 jobs:
-  python-linting:
+  python:
     runs-on: ubuntu-latest
     steps:
       - name: Install python
