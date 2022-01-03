@@ -1,6 +1,26 @@
 name: Lint
 on: [push]
 jobs:
+  golang:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install python
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.17'
+      - name: Install staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+      - name: Lint go files with go vet
+        working-directory: ./fwends-backend
+        run: |
+          go vet ./...
+      - name: Lint go files with staticcheck
+        working-directory: ./fwends-backend
+        run: |
+          staticcheck ./...
   python:
     runs-on: ubuntu-latest
     steps:
