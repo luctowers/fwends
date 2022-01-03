@@ -15,3 +15,17 @@ jobs:
         working-directory: ./fwends-test
         run: |
           python -m pylint $(find . -name "*.py")
+  golang:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install python
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.17'
+      - name: Install staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+      - name: Lint go files
+        working-directory: ./fwends-backend
+        run: |
+          staticcheck ./...
