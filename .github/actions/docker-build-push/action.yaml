@@ -1,21 +1,13 @@
 name: Docker Build and Push
 inputs:
-  registry:
-    required: true
-  username:
-    required: true
-  password:
-    required: true
-  context:
-    required: true
-  build-args:
-    required: false
-  image:
-    required: true
-  cache-tag:
-    required: true
-  output-tag:
-    required: true
+  registry: {}
+  username: {}
+  password: {}
+  context: {}
+  build-args: {}
+  image: {}
+  cache-tag: {}
+  output-tag: {}
 outputs:
   ref:
     value: ${{ inputs.registry }}/${{ inputs.image }}:${{ inputs.output-tag }}
