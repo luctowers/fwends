@@ -1,0 +1,17 @@
+name: Linting
+on: [push]
+jobs:
+  python-linting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install pylint
+        run: |
+          pip install pylint
+      - name: Lint python files
+        working-directory: ./fwends-test
+        run: |
+          pylint $(find . -name "*.py")
