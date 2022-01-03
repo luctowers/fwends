@@ -14,4 +14,4 @@ jobs:
       - name: Lint python files
         working-directory: ./fwends-test
         run: |
-          pylint $(find . -name "*.py")
+          python -m pylint $(find . -name "*.py")
