@@ -16,7 +16,9 @@ jobs:
       - name: Lint python files
         working-directory: ./fwends-test
         run: |
-          pylint $(find . -name "*.py")
+          pylint \
+            --disable=E0401 \
+            $(find . -name "*.py")
   golang:
     runs-on: ubuntu-latest
     steps:
