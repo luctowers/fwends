@@ -18,7 +18,7 @@ inputs:
     required: true
 outputs:
   ref:
-    value: ${{ inputs.registry }}/${{ inputs.image }}/fwends-postgres:${{ inputs.sha }}
+    value: ${{ inputs.registry }}/${{ inputs.image }}:${{ inputs.sha }}
 runs:
   using: "composite"
   steps:
@@ -37,7 +37,7 @@ runs:
         build-args: ${{ inputs.build-args }}
         push: true
         tags: |
-          ${{ inputs.registry }}/${{ inputs.image }}/fwends-postgres:${{ inputs.output-tag }}
-          ${{ inputs.registry }}/${{ inputs.image }}/fwends-postgres:${{ inputs.cache-tag }}
-        cache-from: type=registry,ref=${{ inputs.registry }}/${{ inputs.image }}/fwends-postgres:${{ inputs.cache-tag }}
+          ${{ inputs.registry }}/${{ inputs.image }}:${{ inputs.output-tag }}
+          ${{ inputs.registry }}/${{ inputs.image }}:${{ inputs.cache-tag }}
+        cache-from: type=registry,ref=${{ inputs.registry }}/${{ inputs.image }}:${{ inputs.cache-tag }}
         cache-to: type=inline
