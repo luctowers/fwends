@@ -22,13 +22,10 @@ jobs:
   fwends-nginx:
     runs-on: ubuntu-latest
     needs: fwends-frontend
-    outputs:
-      ref: ${{ steps.build.outputs.ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Build and push
-        id: build
         uses: ./.github/actions/docker-build-push
         with:
           registry: ghcr.io
@@ -42,13 +39,10 @@ jobs:
             FRONTEND=${{needs.fwends-frontend.outputs.ref}}
   fwends-backend:
     runs-on: ubuntu-latest
-    outputs:
-      ref: ${{ steps.build.outputs.ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Build and push
-        id: build
         uses: ./.github/actions/docker-build-push
         with:
           registry: ghcr.io
@@ -60,13 +54,10 @@ jobs:
           output-tag: ${{ github.sha }}
   fwends-postgres:
     runs-on: ubuntu-latest
-    outputs:
-      ref: ${{ steps.build.outputs.ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Build and push
-        id: build
         uses: ./.github/actions/docker-build-push
         with:
           registry: ghcr.io
@@ -78,13 +69,10 @@ jobs:
           output-tag: ${{ github.sha }}
   fwends-redis:
     runs-on: ubuntu-latest
-    outputs:
-      ref: ${{ steps.build.outputs.ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Build and push
-        id: build
         uses: ./.github/actions/docker-build-push
         with:
           registry: ghcr.io
