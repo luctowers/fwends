@@ -6,19 +6,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Install pipenv
+        run: |
+          pipx install pipenv
       - name: Install python
         uses: actions/setup-python@v2
         with:
           python-version: '3.9'
-      - name: Install pylint
+          cache: 'pipenv'
+          cache-dependency-path: fwends-test/Pipfile.lock
+      - name: Install python dependencies
+        working-directory: ./fwends-test
         run: |
-          pip install pylint
+          pipenv install --dev
       - name: Lint python files
         working-directory: ./fwends-test
         run: |
-          pylint \
-            --disable=E0401 \
-            $(find . -name "*.py")
+          pipenv run pylint $(find . -name "*.py")
   golang:
     runs-on: ubuntu-latest
     steps:
