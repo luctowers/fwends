@@ -142,15 +142,25 @@ jobs:
       - name: Start minikube cluster
         run: |
           minikube start
-      # TODO: allow integration tests to poll, so this sleep isn't needed
       - name: Run skaffold pipeline
         run: |
           skaffold run --port-forward --tail | tee ./skaffold-output.txt &
           echo "SKAFFOLD_PID=$!" >> $GITHUB_ENV
+      - name: Create kubernetes api proxy
+        run: |
+          kubectl proxy --port=8081 &
+          echo "KUBE_PROXY_PID=$!" >> $GITHUB_ENV
       - name: Run Integration tests
         working-directory: ./fwends-test
         run: |
-          pipenv run pytest --health-check-enable --health-check-timeout 120
+          pipenv run pytest \
+            --health-check-enable \
+            --health-check-timeout 120 \
+            --failure-test-enable
+      - name: Terminate kubernetes api proxy
+        if: always()
+        run: |
+          kill -SIGTERM $KUBE_PROXY_PID
       - name: Terminate skaffold process
         if: always()
         run: |

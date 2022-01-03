@@ -1,6 +1,8 @@
 import requests
 
+
 def test_pack_crud(backend):
+	"""Test the POST, GET, PUT and DELETE methods of packs api."""
 
 	# create pack
 	pack = {"title":"Test Title!"}
