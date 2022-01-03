@@ -4,6 +4,8 @@ jobs:
   python:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Install python
         uses: actions/setup-python@v2
         with:
@@ -14,10 +16,12 @@ jobs:
       - name: Lint python files
         working-directory: ./fwends-test
         run: |
-          python -m pylint $(find . -name "*.py")
+          pylint $(find . -name "*.py")
   golang:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Install python
         uses: actions/setup-go@v2
         with:
