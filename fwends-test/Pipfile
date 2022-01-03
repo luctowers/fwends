@@ -9,6 +9,7 @@ requests = "~=2.26"
 kubernetes = "~=21.7"
 
 [dev-packages]
+pylint = "~=2.12"
 
 [requires]
 python_version = "3.9"

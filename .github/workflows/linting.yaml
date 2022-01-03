@@ -1,0 +1,25 @@
+name: Lint
+on: [push]
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install pipenv
+        run: |
+          pipx install pipenv
+      - name: Install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+          cache: 'pipenv'
+          cache-dependency-path: fwends-test/Pipfile.lock
+      - name: Install python dependencies
+        working-directory: ./fwends-test
+        run: |
+          pipenv install --dev
+      - name: Lint python files
+        working-directory: ./fwends-test
+        run: |
+          pipenv run pylint $(find . -name "*.py")
