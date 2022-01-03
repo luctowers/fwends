@@ -21,6 +21,26 @@ jobs:
         working-directory: ./fwends-backend
         run: |
           staticcheck ./...
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install nodejs
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+      - name: Cache nodejs dependencies
+        uses: actions/cache@v2
+        with:
+          path: ./fwends-frontend/node_modules
+          key: ${{ hashFiles('./fwends-frontend/package-lock.json') }}
+      - name: Install nodejs dependencies
+        working-directory: ./fwends-frontend
+        run: npm install
+      - name: Lint javascript files
+        working-directory: ./fwends-frontend
+        run: npm run lint
   python:
     runs-on: ubuntu-latest
     steps:

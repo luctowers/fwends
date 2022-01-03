@@ -5,7 +5,8 @@
   "license": "MIT",
   "scripts": {
     "start": "webpack serve",
-    "build": "webpack"
+    "build": "webpack",
+    "lint": "eslint src --ext .js --ext .jsx"
   },
   "devDependencies": {
     "@babel/core": "^7.16.0",
