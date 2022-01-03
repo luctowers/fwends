@@ -7,7 +7,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Build and push
-        uses: ./.github/actions/docker-build-push.yaml
+        uses: ./.github/actions/docker-build-push
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
