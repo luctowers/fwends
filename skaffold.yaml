@@ -17,8 +17,6 @@ build:
       context: fwends-backend
     - image: fwends-postgres
       context: fwends-postgres
-    - image: fwends-redis
-      context: fwends-redis
     - image: fwends-nginx
       context: fwends-nginx
       requires:
