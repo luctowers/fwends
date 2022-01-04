@@ -33,3 +33,10 @@ spec:
           ports:
             - containerPort: 80
               name: http
+      initContainers:
+        - name: init-backend
+          image: alpine
+          command: ['sh', '-c', "until nslookup fwends-backend.default.svc.cluster.local; do echo waiting for fwends-backend; sleep 2; done"]
+        - name: init-minio
+          image: alpine
+          command: ['sh', '-c', "until nslookup fwends-minio.default.svc.cluster.local; do echo waiting for fwends-minio; sleep 2; done"]
