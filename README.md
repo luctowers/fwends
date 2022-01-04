@@ -60,3 +60,9 @@ ln -s -f ../../git-hooks/pre-commit .git/hooks/pre-commit
 ```shell
 kubectl delete pvc -l app=fwends-postgres
 ```
+
+### Delete persistent Minio volume
+
+```shell
+kubectl delete pvc -l app=fwends-minio
+```

@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fwends-minio
+  labels:
+    app: fwends-minio
+spec:
+  ports:
+    - port: 9000
+      name: http
+  selector:
+    app: fwends-minio
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: fwends-minio
+spec:
+  selector:
+    matchLabels:
+      app: fwends-minio
+  serviceName: fwends-minio
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fwends-minio
+    spec:
+      containers:
+        - name: fwends-minio
+          image: minio/minio
+          args: ["server","/data"]
+          ports:
+            - containerPort: 9000
+              name: http
+          env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fwends-s3
+                  key: accessKey
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fwends-s3
+                  key: secretKey
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 16Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fwends-minio-init
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: fwends-minio-init
+          image: minio/mc
+          command:
+            - /bin/sh
+          args:
+            - -c
+            - |
+              set -eu
+              /usr/bin/mc config host add myminio http://fwends-minio-0.fwends-minio.default.svc.cluster.local:9000 $MINIO_ACCESS_KEY $MINIO_SECRET_KEY;
+              /usr/bin/mc mb myminio/media || true;
+              /usr/bin/mc policy set download myminio/media;
+          env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fwends-s3
+                  key: accessKey
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fwends-s3
+                  key: secretKey
