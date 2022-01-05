@@ -90,7 +90,7 @@ func authRequest(rdb *redis.Client, r *http.Request) (bool, error) {
 		return false, nil
 	} else {
 		key := sessionRedisPrefix + session.Value
-		exists, err := rdb.Exists(context.Background(), key).Result()
+		exists, err := rdb.Exists(r.Context(), key).Result()
 		if err != nil {
 			return false, err
 		} else {
@@ -107,7 +107,7 @@ func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 	} else {
 		services := openAuthServices()
 		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-			authenticateBody(w, r, db, rdb, services)
+			authenticateBody(r.Context(), w, r, db, rdb, services)
 		}
 	}
 }
@@ -123,7 +123,7 @@ func openAuthServices() authServices {
 	return services
 }
 
-func authenticateBody(w http.ResponseWriter, r *http.Request, db *sql.DB, rdb *redis.Client, services authServices) {
+func authenticateBody(ctx context.Context, w http.ResponseWriter, r *http.Request, db *sql.DB, rdb *redis.Client, services authServices) {
 	decoder := json.NewDecoder(r.Body)
 	var body authBody
 	err := decoder.Decode(&body)
@@ -133,7 +133,7 @@ func authenticateBody(w http.ResponseWriter, r *http.Request, db *sql.DB, rdb *r
 	} else {
 		switch body.Service {
 		case "google":
-			authenticateGoogleToken(w, body.Token, db, rdb, services.google)
+			authenticateGoogleToken(ctx, w, body.Token, db, rdb, services.google)
 		default:
 			util.Error(w, http.StatusBadRequest)
 			log.WithFields(log.Fields{
@@ -143,7 +143,7 @@ func authenticateBody(w http.ResponseWriter, r *http.Request, db *sql.DB, rdb *r
 	}
 }
 
-func authenticateGoogleToken(w http.ResponseWriter, token string, db *sql.DB, rdb *redis.Client, google *oauth2.Service) {
+func authenticateGoogleToken(ctx context.Context, w http.ResponseWriter, token string, db *sql.DB, rdb *redis.Client, google *oauth2.Service) {
 	if google == nil {
 		util.Error(w, http.StatusBadRequest)
 		log.Warn("Google oauth2 is not enabled")
@@ -159,14 +159,14 @@ func authenticateGoogleToken(w http.ResponseWriter, token string, db *sql.DB, rd
 				util.Error(w, http.StatusInternalServerError)
 				log.Warn("Oauth2 token info did not contain a verified email")
 			} else {
-				authenticateEmail(w, info.Email, db, rdb)
+				authenticateEmail(ctx, w, info.Email, db, rdb)
 			}
 		}
 	}
 }
 
-func authenticateEmail(w http.ResponseWriter, email string, db *sql.DB, rdb *redis.Client) {
-	rows, err := db.Query("SELECT 1 FROM admins WHERE email = $1", email)
+func authenticateEmail(ctx context.Context, w http.ResponseWriter, email string, db *sql.DB, rdb *redis.Client) {
+	rows, err := db.QueryContext(ctx, "SELECT 1 FROM admins WHERE email = $1", email)
 	if err != nil {
 		util.Error(w, http.StatusInternalServerError)
 		log.WithError(err).Error("Failed to query postgres for admin email")
@@ -177,12 +177,12 @@ func authenticateEmail(w http.ResponseWriter, email string, db *sql.DB, rdb *red
 			util.Error(w, http.StatusUnauthorized)
 			log.Warn("Unauthorized authentication attempt")
 		} else {
-			authenticateCreateSession(w, rdb)
+			authenticateCreateSession(ctx, w, rdb)
 		}
 	}
 }
 
-func authenticateCreateSession(w http.ResponseWriter, rdb *redis.Client) {
+func authenticateCreateSession(ctx context.Context, w http.ResponseWriter, rdb *redis.Client) {
 	var id [sessionIDSize]byte
 	n, err := io.ReadFull(rand.Reader, id[:])
 	if err != nil || n != sessionIDSize {
@@ -191,7 +191,7 @@ func authenticateCreateSession(w http.ResponseWriter, rdb *redis.Client) {
 	} else {
 		id := base64.StdEncoding.EncodeToString(id[:])
 		key := sessionRedisPrefix + id
-		val, err := rdb.SetNX(context.Background(), key, true, sessionTTL).Result()
+		val, err := rdb.SetNX(ctx, key, true, sessionTTL).Result()
 		if err != nil || !val {
 			util.Error(w, http.StatusInternalServerError)
 			log.WithError(err).Error("Failed to set session key in redis")
