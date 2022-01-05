@@ -14,5 +14,5 @@ metadata:
   name: fwends-postgres
 data:
   # TODO: replace if using external postgres
-  host: fwends-postgres-0.fwends-postgres.default.svc.cluster.local
+  host: fwends-postgres.default.svc.cluster.local
   db: fwends

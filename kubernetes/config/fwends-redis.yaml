@@ -13,4 +13,4 @@ metadata:
   name: fwends-redis
 data:
   # TODO: replace if using external redis
-  host: fwends-redis-0.fwends-redis.default.svc.cluster.local
+  host: fwends-redis.default.svc.cluster.local

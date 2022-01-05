@@ -2,6 +2,10 @@ import pytest
 import requests
 import kubernetes.client
 from util import (
+	get_replica_count,
+	get_desired_replica_count,
+	set_replica_count,
+	get_replica_count_stateful,
 	get_desired_replica_count_stateful,
 	set_replica_count_stateful,
 	retry_assert
@@ -34,11 +38,16 @@ def test_health_check_redis(backend, kubernetes_client, namespace):
 
 	appsv1 = kubernetes.client.AppsV1Api(kubernetes_client)
 
-	# bring down redis
-	restore_replica_count = get_desired_replica_count_stateful(
+	# tell redis to stop
+	restore_replica_count = get_desired_replica_count(
 		appsv1, namespace, "fwends-redis"
 	)
-	set_replica_count_stateful(appsv1, namespace, "fwends-redis", 0)
+	set_replica_count(appsv1, namespace, "fwends-redis", 0)
+
+	# wait for postgres to stop
+	def assert_redis_down():
+		assert get_replica_count(appsv1, namespace, "fwends-redis") == 0
+	retry_assert(assert_redis_down, 10)
 
 	try:
 		# assert redis unhealthy
@@ -48,7 +57,7 @@ def test_health_check_redis(backend, kubernetes_client, namespace):
 		}})
 	finally:
 		# restore redis
-		set_replica_count_stateful(
+		set_replica_count(
 			appsv1, namespace, "fwends-redis", restore_replica_count
 		)
 
@@ -58,7 +67,8 @@ def test_health_check_redis(backend, kubernetes_client, namespace):
 			"postgres": True,
 			"redis": True,
 		}})
-	retry_assert(assert_healthy, 60)
+	retry_assert(assert_healthy, 10)
+
 
 @pytest.mark.failure_test
 def test_health_check_postgres(backend, kubernetes_client, namespace):
@@ -66,11 +76,16 @@ def test_health_check_postgres(backend, kubernetes_client, namespace):
 
 	appsv1 = kubernetes.client.AppsV1Api(kubernetes_client)
 
-	# bring down postgres
+	# tell postgres to stop
 	restore_replica_count = get_desired_replica_count_stateful(
 		appsv1, namespace, "fwends-postgres"
 	)
 	set_replica_count_stateful(appsv1, namespace, "fwends-postgres", 0)
+
+	# wait for postgres to stop
+	def assert_redis_down():
+		assert get_replica_count_stateful(appsv1, namespace, "fwends-postgres") == 0
+	retry_assert(assert_redis_down, 10)
 
 	try:
 		# assert postgres unhealthy
@@ -90,4 +105,4 @@ def test_health_check_postgres(backend, kubernetes_client, namespace):
 			"postgres": True,
 			"redis": True,
 		}})
-	retry_assert(assert_healthy, 60)
+	retry_assert(assert_healthy, 10)
