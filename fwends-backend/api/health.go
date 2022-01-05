@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/julienschmidt/httprouter"
@@ -22,25 +24,57 @@ type healthServiceInfo struct {
 
 func HealthCheck(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		cdb := make(chan error)
-		crdb := make(chan *redis.StatusCmd)
+
+		// context that times out after 3 seconds, or when finish is called
+		ctx, finish := context.WithTimeout(context.Background(), time.Duration(3*time.Second))
+		defer finish()
+
+		// create wait group that will call finish when all services have responded
+		var wg sync.WaitGroup
+		wg.Add(2)
 		go func() {
-			cdb <- db.Ping()
+			defer finish()
+			wg.Wait()
 		}()
+
+		// ping postgres
+		cdb := make(chan bool)
 		go func() {
-			crdb <- rdb.Ping(context.Background())
+			defer wg.Done()
+			err := db.PingContext(ctx)
+			if err != nil {
+				log.WithError(err).Error("Failed to ping postgres")
+			}
+			cdb <- err == nil
 		}()
+
+		// ping redis
+		crdb := make(chan bool)
+		go func() {
+			defer wg.Done()
+			cmd := rdb.Ping(ctx)
+			_, err := cmd.Result()
+			if err != nil {
+				log.WithError(err).Error("Failed to ping redis")
+			}
+			crdb <- err == nil
+		}()
+
+		// select loop
 		var health healthInfo
-		err := <-cdb
-		health.Services.Postgres = err == nil
-		if err != nil {
-			log.WithError(err).Error("Unable to ping postgres")
+	loop:
+		for {
+			select {
+			case health.Services.Postgres = <-cdb:
+			case health.Services.Redis = <-crdb:
+			case <-ctx.Done():
+				json.NewEncoder(w).Encode(health)
+				break loop
+			case <-r.Context().Done():
+				// request cancelled
+				break loop
+			}
 		}
-		_, err = (<-crdb).Result()
-		health.Services.Redis = err == nil
-		if err != nil {
-			log.WithError(err).Error("Unable to ping redis")
-		}
-		json.NewEncoder(w).Encode(health)
+
 	}
 }
