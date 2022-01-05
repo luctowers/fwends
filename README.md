@@ -1,5 +1,8 @@
 # FWENDS
 
+[![CI](https://github.com/luctowers/fwends/actions/workflows/ci.yaml/badge.svg)](https://github.com/luctowers/fwends/actions/workflows/ci.yaml)
+[![Lint](https://github.com/luctowers/fwends/actions/workflows/linting.yaml/badge.svg)](https://github.com/luctowers/fwends/actions/workflows/linting.yaml)
+
 ## Development Environment (Required)
 
 ### Install Minikube
