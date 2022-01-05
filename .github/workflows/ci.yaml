@@ -103,7 +103,7 @@ jobs:
           minikube start
       - name: Run skaffold pipeline
         run: |
-          skaffold run --port-forward --tail | tee ./skaffold-output.txt &
+          skaffold -p import run --port-forward --tail | tee ./skaffold-output.txt &
           echo "SKAFFOLD_PID=$!" >> $GITHUB_ENV
       - name: Create kubernetes api proxy
         run: |
