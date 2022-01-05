@@ -40,7 +40,7 @@ func CreatePack(db *sql.DB, snowflake *util.SnowflakeGenerator) httprouter.Handl
 			log.Warn("Empty pack title is not allowed")
 		} else {
 			id := snowflake.GenID()
-			_, err := db.Exec("INSERT INTO packs (id, title) VALUES ($1, $2)", id, body.Title)
+			_, err := db.ExecContext(r.Context(), "INSERT INTO packs (id, title) VALUES ($1, $2)", id, body.Title)
 			if err != nil {
 				util.Error(w, http.StatusInternalServerError)
 				log.WithError(err).Error("Failed to insert new pack")
@@ -57,7 +57,7 @@ func CreatePack(db *sql.DB, snowflake *util.SnowflakeGenerator) httprouter.Handl
 func GetPack(db *sql.DB) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		id := ps.ByName("id")
-		rows, err := db.Query("SELECT title FROM packs WHERE id = $1;", id)
+		rows, err := db.QueryContext(r.Context(), "SELECT title FROM packs WHERE id = $1;", id)
 		if err != nil {
 			util.Error(w, http.StatusInternalServerError)
 			log.WithError(err).Error("Failed to get pack")
@@ -95,7 +95,7 @@ func UpdatePack(db *sql.DB) httprouter.Handle {
 			log.Warn("Empty pack title is not allowed")
 		} else {
 			id := ps.ByName("id")
-			res, err := db.Exec("UPDATE packs SET title = $2 WHERE id = $1;", id, body.Title)
+			res, err := db.ExecContext(r.Context(), "UPDATE packs SET title = $2 WHERE id = $1;", id, body.Title)
 			if err != nil {
 				util.Error(w, http.StatusInternalServerError)
 				log.WithError(err).Error("Failed to update pack")
@@ -120,7 +120,7 @@ func UpdatePack(db *sql.DB) httprouter.Handle {
 func DeletePack(db *sql.DB) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		id := ps.ByName("id")
-		res, err := db.Exec("DELETE FROM packs WHERE id = $1;", id)
+		res, err := db.ExecContext(r.Context(), "DELETE FROM packs WHERE id = $1;", id)
 		if err != nil {
 			util.Error(w, http.StatusInternalServerError)
 			log.WithError(err).Error("Failed to delete pack")
