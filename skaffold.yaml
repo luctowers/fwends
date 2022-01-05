@@ -6,7 +6,6 @@ build:
       variant: CommitSha
   local:
     concurrency: 4
-    tryImportMissing: true
   artifacts:
     - image: fwends-frontend
       context: fwends-frontend
@@ -32,6 +31,11 @@ profiles:
       - op: replace
         path: /build/artifacts/0/docker/buildArgs/WEBPACK_MODE
         value: development
+  - name: import
+    patches:
+      - op: add
+        path: /build/local/tryImportMissing
+        value: true
 portForward:
   - resourceType: service
     resourceName: fwends-nginx
