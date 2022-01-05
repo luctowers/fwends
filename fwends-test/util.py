@@ -56,5 +56,23 @@ def get_replica_count_stateful(appsv1, namespace, app):
 def set_replica_count_stateful(appsv1, namespace, app, count):
 	body = {"spec": {"replicas": count}}
 	appsv1.patch_namespaced_stateful_set_scale(app, namespace, body)
-	while get_replica_count_stateful(appsv1, namespace, app) != count:
-		time.sleep(1)
+
+def get_desired_replica_count(appsv1, namespace, app):
+	stateful_set = appsv1.list_namespaced_deployment(
+		namespace, field_selector="metadata.name=" + app
+	).items[0]
+	return stateful_set.spec.replicas
+
+
+def get_replica_count(appsv1, namespace, app):
+	replica_set = appsv1.list_namespaced_deployment(
+		namespace, field_selector="metadata.name=" + app
+	).items[0]
+	if replica_set.status.replicas is None:
+		return 0
+	return replica_set.status.replicas
+
+
+def set_replica_count(appsv1, namespace, app, count):
+	body = {"spec": {"replicas": count}}
+	appsv1.patch_namespaced_deployment_scale(app, namespace, body)

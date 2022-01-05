@@ -12,15 +12,14 @@ spec:
     app: fwends-redis
 ---
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: fwends-redis
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: fwends-redis
-  serviceName: fwends-redis
-  replicas: 1
   template:
     metadata:
       labels:
