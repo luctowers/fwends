@@ -29,6 +29,7 @@ def test_health_check_healthy(backend):
 	assert_health_check(backend, {"services": {
 		"postgres": True,
 		"redis": True,
+		"s3": True,
 	}})
 
 
@@ -54,6 +55,7 @@ def test_health_check_redis(backend, kubernetes_client, namespace):
 		assert_health_check(backend, {"services": {
 			"postgres": True,
 			"redis": False,
+			"s3": True,
 		}})
 	finally:
 		# restore redis
@@ -66,6 +68,7 @@ def test_health_check_redis(backend, kubernetes_client, namespace):
 		assert_health_check(backend, {"services": {
 			"postgres": True,
 			"redis": True,
+			"s3": True,
 		}})
 	retry_assert(assert_healthy, 10)
 
@@ -92,6 +95,7 @@ def test_health_check_postgres(backend, kubernetes_client, namespace):
 		assert_health_check(backend, {"services": {
 			"postgres": False,
 			"redis": True,
+			"s3": True,
 		}})
 	finally:
 		# restore postgres
@@ -104,5 +108,46 @@ def test_health_check_postgres(backend, kubernetes_client, namespace):
 		assert_health_check(backend, {"services": {
 			"postgres": True,
 			"redis": True,
+			"s3": True,
+		}})
+	retry_assert(assert_healthy, 10)
+
+
+@pytest.mark.failure_test
+def test_health_check_s3(backend, kubernetes_client, namespace):
+	"""Test postgres service is marked as unhealthy when it is down."""
+
+	appsv1 = kubernetes.client.AppsV1Api(kubernetes_client)
+
+	# tell minio to stop
+	restore_replica_count = get_desired_replica_count_stateful(
+		appsv1, namespace, "fwends-minio"
+	)
+	set_replica_count_stateful(appsv1, namespace, "fwends-minio", 0)
+
+	# wait for minio to stop
+	def assert_minio_down():
+		assert get_replica_count_stateful(appsv1, namespace, "fwends-minio") == 0
+	retry_assert(assert_minio_down, 10)
+
+	try:
+		# assert minio unhealthy
+		assert_health_check(backend, {"services": {
+			"postgres": True,
+			"redis": True,
+			"s3": False,
+		}})
+	finally:
+		# restore minio
+		set_replica_count_stateful(
+			appsv1, namespace, "fwends-minio", restore_replica_count
+		)
+
+	# wait for all services to be healthy again
+	def assert_healthy():
+		assert_health_check(backend, {"services": {
+			"postgres": True,
+			"redis": True,
+			"s3": True,
 		}})
 	retry_assert(assert_healthy, 10)
