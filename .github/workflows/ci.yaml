@@ -85,19 +85,18 @@ jobs:
         run: |
           curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
           sudo install skaffold /usr/local/bin/
-      - name: Install pipenv
+      - name: Install poetry
         run: |
-          pipx install pipenv
-      - name: Install python
-        uses: actions/setup-python@v2
+          pipx install poetry
+      - name: Cache python dependencies
+        uses: actions/cache@v2
         with:
-          python-version: '3.9'
-          cache: 'pipenv'
-          cache-dependency-path: fwends-test/Pipfile.lock
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-python-${{ hashFiles('./fwends-test/poetry.lock') }}
       - name: Install python dependencies
         working-directory: ./fwends-test
         run: |
-          pipenv install
+          poetry install
       - name: Start minikube cluster
         run: |
           minikube start
@@ -112,7 +111,7 @@ jobs:
       - name: Run Integration tests
         working-directory: ./fwends-test
         run: |
-          pipenv run pytest \
+          poetry run pytest \
             --health-check-enable \
             --health-check-timeout 120 \
             --failure-test-enable

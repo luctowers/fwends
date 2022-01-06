@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "fwends-test"
+version = "0.1.0"
+description = ""
+authors = ["Lucas Towers <luctowers@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pytest = "^6.2.5"
+requests = "^2.27.1"
+kubernetes = "^21.7.0"
+
+[tool.poetry.dev-dependencies]
+pylint = "^2.12.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

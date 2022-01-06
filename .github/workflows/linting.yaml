@@ -55,20 +55,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Install pipenv
-        run: |
-          pipx install pipenv
       - name: Install python
         uses: actions/setup-python@v2
         with:
           python-version: '3.9'
           cache: 'pipenv'
           cache-dependency-path: fwends-test/Pipfile.lock
+      - name: Install poetry
+        run: |
+          pipx install poetry
+      - name: Cache python dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-python-${{ hashFiles('./fwends-test/poetry.lock') }}
       - name: Install python dependencies
         working-directory: ./fwends-test
         run: |
-          pipenv install --dev
+          poetry install
       - name: Lint python files
         working-directory: ./fwends-test
         run: |
-          pipenv run pylint $(find . -name "*.py")
+          poetry run pylint $(find . -name "*.py")
