@@ -21,7 +21,7 @@ type SnowflakeGenerator struct {
 func NewSnowflakeGenerator(machine int64) (*SnowflakeGenerator, error) {
 	g := new(SnowflakeGenerator)
 	g.sequence = 0
-	if machine >= (1 << machineBits) {
+	if machine >= (1<<machineBits) || machine < 0 {
 		return nil, errors.New("snowflake machine id out of range")
 	}
 	g.base = machine << sequenceBits
