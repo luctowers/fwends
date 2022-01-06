@@ -7,7 +7,7 @@ cd $ROOT/fwends-frontend
 JAVASCRIPT_FILES=$(git diff --cached --name-only --diff-filter=ACM src/ | grep ".jsx\{0,1\}$")
 for FILE in $JAVASCRIPT_FILES
 do
-    eslint "$ROOT/$FILE"
+    npm run lint -- "$ROOT/$FILE"
     if [[ "$?" == 0 ]]; then
         echo "esLint passed: $FILE"
     else
@@ -40,7 +40,7 @@ cd $ROOT/fwends-test
 PYTHON_FILES=$(git diff --cached --name-only --diff-filter=ACM . | grep ".py$")
 for FILE in $PYTHON_FILES
 do
-    pylint "$ROOT/$FILE"
+    poetry run pylint "$ROOT/$FILE"
     if [[ "$?" == 0 ]]; then
         echo "pylint passed: $FILE"
     else
