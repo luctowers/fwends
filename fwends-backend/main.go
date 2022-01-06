@@ -18,6 +18,10 @@ func main() {
 		log.WithError(err).Fatal("Failed to create postgres client")
 	}
 	rdb := connections.OpenRedis()
+	s3c, err := connections.OpenS3()
+	if err != nil {
+		log.WithError(err).Fatal("Failed to create s3 client")
+	}
 
 	podIndex, err := util.PodIndex()
 	if err != nil {
@@ -29,7 +33,7 @@ func main() {
 	}
 
 	router := httprouter.New()
-	router.GET("/api/health", api.HealthCheck(db, rdb))
+	router.GET("/api/health", api.HealthCheck(db, rdb, s3c))
 	router.POST("/api/auth", api.Authenticate(db, rdb))
 	router.GET("/api/auth", api.AuthVerify(rdb))
 	router.GET("/api/auth/config", api.AuthConfig())

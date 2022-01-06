@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-redis/redis/v8"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
@@ -20,9 +21,10 @@ type healthInfo struct {
 type healthServiceInfo struct {
 	Postgres bool `json:"postgres"`
 	Redis    bool `json:"redis"`
+	S3       bool `json:"s3"`
 }
 
-func HealthCheck(db *sql.DB, rdb *redis.Client) httprouter.Handle {
+func HealthCheck(db *sql.DB, rdb *redis.Client, s3c *s3.Client) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 		// context that times out after 3 seconds, or when finish is called
@@ -31,7 +33,7 @@ func HealthCheck(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 
 		// create wait group that will call finish when all services have responded
 		var wg sync.WaitGroup
-		wg.Add(2)
+		wg.Add(3)
 		go func() {
 			defer finish()
 			wg.Wait()
@@ -60,6 +62,17 @@ func HealthCheck(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 			crdb <- err == nil
 		}()
 
+		// check for bucket existance in s3
+		cs3c := make(chan bool)
+		go func() {
+			defer wg.Done()
+			_, err := s3c.ListBuckets(ctx, &s3.ListBucketsInput{})
+			if err != nil {
+				log.WithError(err).Error("Failed to list s3 buckets")
+			}
+			cs3c <- err == nil
+		}()
+
 		// select loop
 		var health healthInfo
 	loop:
@@ -67,6 +80,7 @@ func HealthCheck(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 			select {
 			case health.Services.Postgres = <-cdb:
 			case health.Services.Redis = <-crdb:
+			case health.Services.S3 = <-cs3c:
 			case <-ctx.Done():
 				json.NewEncoder(w).Encode(health)
 				break loop
