@@ -6,7 +6,8 @@
   "scripts": {
     "start": "webpack serve",
     "build": "webpack",
-    "lint": "eslint src --ext .js --ext .jsx"
+    "lintall": "eslint src --ext .js --ext .jsx",
+    "lint": "eslint"
   },
   "devDependencies": {
     "@babel/core": "^7.16.0",

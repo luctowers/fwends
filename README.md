@@ -3,69 +3,17 @@
 [![CI](https://github.com/luctowers/fwends/actions/workflows/ci.yaml/badge.svg)](https://github.com/luctowers/fwends/actions/workflows/ci.yaml)
 [![Lint](https://github.com/luctowers/fwends/actions/workflows/linting.yaml/badge.svg)](https://github.com/luctowers/fwends/actions/workflows/linting.yaml)
 
-## Development Environment (Required)
+## Development Setup
 
-### Install Minikube
+### Minimal Setup
 
-https://minikube.sigs.k8s.io/docs/start/
+1. install skaffold https://skaffold.dev/docs/quickstart/
+2. run services with dev profile `skaffold dev -p dev`
+3. open a browser http://localhost:8080/
 
-### Install Skaffold
+### Optional Setup
 
-https://skaffold.dev/docs/quickstart/
-
-### Run services with Skaffold
-
-```shell
-skaffold dev -p dev
-```
-
-### Access on port 8080
-
-http://localhost:8080/
-
-## Development Environment (Optional)
-
-### Install Go
-
-https://go.dev/doc/install
-
-### Install Node.js
-
-https://nodejs.org/en/download/
-
-### Install eslint
-
-```shell
-npm install eslint --global
-```
-
-### Install staticcheck
-
-```shell
-go install honnef.co/go/tools/cmd/staticcheck@latest
-```
-
-### Install pylint
-
-https://pylint.org/#install
-
-### Enable pre-commit hooks
-
-```shell
-chmod +x git-hooks/pre-commit
-ln -s -f ../../git-hooks/pre-commit .git/hooks/pre-commit
-```
-
-## Useful commands
-
-### Delete persistent Postgres volume
-
-```shell
-kubectl delete pvc -l app=fwends-postgres
-```
-
-### Delete persistent Minio volume
-
-```shell
-kubectl delete pvc -l app=fwends-minio
-```
+- setup pre-commit git hook linting [git-hooks/README.md](./git-hooks/README.md)
+- learn how to run integration and failure tests [fwends-test/README.md](./fwends-test/README.md)
+- set custom kubernetes configmaps and secrets [kubernetes/custom/README.md](./kubernetes/custom/README.md)
+- read useful commands reference [docs/commands.md](./docs/commands.md)
