@@ -85,6 +85,10 @@ jobs:
         run: |
           curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
           sudo install skaffold /usr/local/bin/
+      - name: Install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
       - name: Install poetry
         run: |
           pipx install poetry

@@ -59,8 +59,6 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '3.9'
-          cache: 'pipenv'
-          cache-dependency-path: fwends-test/Pipfile.lock
       - name: Install poetry
         run: |
           pipx install poetry
