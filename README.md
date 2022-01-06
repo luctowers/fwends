@@ -16,4 +16,4 @@
 - setup pre-commit git hook linting [git-hooks/README.md](./git-hooks/README.md)
 - learn how to run integration and failure tests [fwends-test/README.md](./fwends-test/README.md)
 - set custom kubernetes configmaps and secrets [kubernetes/custom/README.md](./kubernetes/custom/README.md)
-- read useful commands reference [docs/commands.md](./docs/commands.md)
+- read useful commands reference [documentation/commands.md](./documentation/commands.md)
