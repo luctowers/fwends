@@ -100,7 +100,7 @@ jobs:
       - name: Install python dependencies
         working-directory: ./fwends-test
         run: |
-          poetry install
+          poetry install --no-dev
       - name: Start minikube cluster
         run: |
           minikube start
