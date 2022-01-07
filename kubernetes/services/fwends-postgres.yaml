@@ -37,6 +37,8 @@ spec:
                 name: fwends-postgres
             - secretRef:
                 name: fwends-postgres
+            - configMapRef:
+                name: fwends-admin
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
