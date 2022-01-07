@@ -4,4 +4,4 @@ metadata:
   name: fwends-admin
 data:
   # TODO: replace with admin emails
-  emails: alice@example.org,bob@example.org
+  ADMIN_EMAILS: alice@example.org,bob@example.org

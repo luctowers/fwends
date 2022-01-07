@@ -13,7 +13,7 @@ kind: ConfigMap
 metadata:
   name: fwends-admin
 data:
-  emails: myemail@gmail.com,myfriend@gmail.com
+  ADMIN_EMAILS: myemail@gmail.com,myfriend@gmail.com
 ```
 
 `fwends-auth.yaml`
@@ -24,6 +24,6 @@ kind: ConfigMap
 metadata:
   name: fwends-auth
 data:
-  enable: "true"
-  googleClientId: "yourgoogleclientidhere.apps.googleusercontent.com"
+  AUTH_ENABLE: "true"
+  GOOGLE_CLIENT_ID: "yourgoogleclientidhere.apps.googleusercontent.com"
 ```

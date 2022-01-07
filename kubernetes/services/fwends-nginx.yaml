@@ -33,10 +33,18 @@ spec:
           ports:
             - containerPort: 80
               name: http
+          envFrom:
+            - configMapRef:
+                name: fwends-nginx
       initContainers:
-        - name: init-backend
+        - name: fwends-nginx-init
           image: alpine
-          command: ['sh', '-c', "until nslookup fwends-backend.default.svc.cluster.local; do echo waiting for fwends-backend; sleep 2; done"]
-        - name: init-minio
-          image: alpine
-          command: ['sh', '-c', "until nslookup fwends-minio.default.svc.cluster.local; do echo waiting for fwends-minio; sleep 2; done"]
+          command: 
+            - "sh"
+            - "-c"
+            - |
+              until nslookup $BACKEND_DNS; do echo waiting for backend; sleep 1; done;
+              until nslookup $MEDIA_DNS; do echo waiting for media; sleep 1; done;
+          envFrom:
+            - configMapRef:
+                name: fwends-nginx

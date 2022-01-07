@@ -38,12 +38,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: fwends-s3
-                  key: accessKey
+                  key: S3_ACCESS_KEY
             - name: MINIO_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: fwends-s3
-                  key: secretKey
+                  key: S3_SECRET_KEY
           volumeMounts:
             - name: data
               mountPath: /data
@@ -81,9 +81,9 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: fwends-s3
-                  key: accessKey
+                  key: S3_ACCESS_KEY
             - name: MINIO_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: fwends-s3
-                  key: secretKey
+                  key: S3_SECRET_KEY

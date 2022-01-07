@@ -1,16 +1,14 @@
 package connections
 
 import (
-	"os"
-
 	"github.com/go-redis/redis/v8"
+	"github.com/spf13/viper"
 )
 
 func OpenRedis() *redis.Client {
-	// TODO: make redis port configurable
 	return redis.NewClient(&redis.Options{
-		Addr:     os.Getenv("REDIS_HOST") + ":6379",
-		Password: os.Getenv("REDIS_PASSWORD"),
+		Addr:     viper.GetString("redis_endpoint"),
+		Password: viper.GetString("redis_password"),
 		DB:       0,
 	})
 }

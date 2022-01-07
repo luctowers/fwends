@@ -32,27 +32,11 @@ spec:
           ports:
             - containerPort: 5432
               name: postgres
-          env:
-            - name: POSTGRES_DB
-              valueFrom:
-                configMapKeyRef:
-                  name: fwends-postgres
-                  key: db
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: fwends-postgres
-                  key: adminUser
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: fwends-postgres
-                  key: adminPassword
-            - name: ADMIN_EMAILS
-              valueFrom:
-                configMapKeyRef:
-                  name: fwends-admin
-                  key: emails
+          envFrom:
+            - configMapRef:
+                name: fwends-postgres
+            - secretRef:
+                name: fwends-postgres
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data

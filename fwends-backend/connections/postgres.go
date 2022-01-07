@@ -3,18 +3,18 @@ package connections
 import (
 	"database/sql"
 	"fmt"
-	"os"
+
+	"github.com/spf13/viper"
 )
 
 func OpenPostgres() (*sql.DB, error) {
-	// TODO: make postgres port configurable
-	// TODO: add intraservice tls
 	connStr := fmt.Sprintf(
-		"postgresql://%s:%s@%s/%s?sslmode=disable",
-		os.Getenv("POSTGRES_USER"),
-		os.Getenv("POSTGRES_PASSWORD"),
-		os.Getenv("POSTGRES_HOST"),
-		os.Getenv("POSTGRES_DB"),
+		"postgresql://%s:%s@%s/%s?sslmode=%s",
+		viper.GetString("postgres_user"),
+		viper.GetString("postgres_password"),
+		viper.GetString("postgres_endpoint"),
+		viper.GetString("postgres_db"),
+		viper.GetString("postgres_ssl_mode"),
 	)
 	return sql.Open("postgres", connStr)
 }

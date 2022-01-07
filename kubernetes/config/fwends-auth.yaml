@@ -5,5 +5,5 @@ metadata:
 data:
   # TODO: if these are not specified all authentication request will be trusted
   # https://developers.google.com/identity/sign-in/web/sign-in#create_authorization_credentials
-  enable: "false"
-  googleClientId: ""
+  AUTH_ENABLE: "false"
+  GOOGLE_CLIENT_ID: ""

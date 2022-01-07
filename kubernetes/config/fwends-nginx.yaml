@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fwends-nginx
+data:
+  BACKEND_ENDPOINT: http://fwends-backend.default.svc.cluster.local:80
+  BACKEND_DNS: fwends-backend.default.svc.cluster.local
+  MEDIA_ENDPOINT: http://fwends-minio.default.svc.cluster.local:9000
+  MEDIA_DNS: fwends-backend.default.svc.cluster.local

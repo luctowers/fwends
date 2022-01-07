@@ -9,12 +9,12 @@ import (
 	"fwends-backend/util"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"google.golang.org/api/oauth2/v1"
 	"google.golang.org/api/option"
 )
@@ -46,9 +46,9 @@ type authServices struct {
 
 func AuthConfig() httprouter.Handle {
 	info := authInfo{
-		Enable: os.Getenv("AUTH_ENABLE") == "true",
+		Enable: viper.GetBool("auth_enable"),
 		Services: authServiceInfo{
-			GoogleClientId: os.Getenv("GOOGLE_CLIENT_ID"),
+			GoogleClientId: viper.GetString("google_client_id"),
 		},
 	}
 	bytes, err := json.Marshal(info)
@@ -62,7 +62,7 @@ func AuthConfig() httprouter.Handle {
 }
 
 func AuthVerify(rdb *redis.Client) httprouter.Handle {
-	if os.Getenv("AUTH_ENABLE") != "true" {
+	if !viper.GetBool("auth_enable") {
 		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			util.Error(w, http.StatusMisdirectedRequest)
 		}
@@ -100,7 +100,7 @@ func authRequest(rdb *redis.Client, r *http.Request) (bool, error) {
 }
 
 func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
-	if os.Getenv("AUTH_ENABLE") != "true" {
+	if !viper.GetBool("auth_enable") {
 		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			util.Error(w, http.StatusMisdirectedRequest)
 		}

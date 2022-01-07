@@ -6,13 +6,30 @@ import (
 	"fwends-backend/util"
 	"net/http"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 func main() {
+	viper.BindEnv("auth_enable")
+	viper.BindEnv("google_client_id")
+	viper.BindEnv("postgres_endpoint")
+	viper.BindEnv("postgres_user")
+	viper.BindEnv("postgres_password")
+	viper.BindEnv("postgres_db")
+	viper.BindEnv("postgres_ssl_mode")
+	viper.BindEnv("redis_endpoint")
+	viper.BindEnv("redis_password")
+	viper.BindEnv("s3_endpoint")
+	viper.BindEnv("s3_region")
+	viper.BindEnv("s3_access_key")
+	viper.BindEnv("s3_secret_key")
+
+	viper.SetDefault("auth_enable", true)
+	viper.SetDefault("postgres_ssl_mode", "require")
+
 	db, err := connections.OpenPostgres()
 	if err != nil {
 		log.WithError(err).Fatal("Failed to create postgres client")

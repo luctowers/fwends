@@ -3,7 +3,7 @@ http {
 	server {
 		server_tokens off;
 		location /api {
-			proxy_pass http://fwends-backend.default.svc.cluster.local;
+			proxy_pass ${BACKEND_ENDPOINT};
 		}
 		location /media {
 			proxy_set_header X-Real-IP $remote_addr;
@@ -14,7 +14,7 @@ http {
 			proxy_http_version 1.1;
 			proxy_set_header Connection "";
 			chunked_transfer_encoding off;
-			proxy_pass http://fwends-minio.default.svc.cluster.local:9000;
+			proxy_pass ${MEDIA_ENDPOINT};
 		}
 		location / {
 			root /usr/share/nginx/html;

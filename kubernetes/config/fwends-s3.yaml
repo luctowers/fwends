@@ -5,8 +5,8 @@ metadata:
 type: Opaque
 data:
   # TODO: replace with a secure credentials
-  accessKey: QUtJQUlPU0ZPRE5ON0VYQU1QTEU=
-  secretKey: d0phbHJYVXRuRkVNSS9LN01ERU5HL2JQeFJmaUNZRVhBTVBMRUtFWQ==
+  S3_ACCESS_KEY: QUtJQUlPU0ZPRE5ON0VYQU1QTEU=
+  S3_SECRET_KEY: d0phbHJYVXRuRkVNSS9LN01ERU5HL2JQeFJmaUNZRVhBTVBMRUtFWQ==
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -14,6 +14,5 @@ metadata:
   name: fwends-s3
 data:
   # TODO: replace if using a s3 compatible cloud storage service
-  endpoint: http://fwends-minio.default.svc.cluster.local:9000
-  sslDisable: "true"
-  region: us-east-1
+  S3_ENDPOINT: http://fwends-minio.default.svc.cluster.local:9000
+  S3_REGION: us-east-1

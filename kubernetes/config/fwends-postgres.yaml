@@ -4,9 +4,9 @@ metadata:
   name: fwends-postgres
 type: Opaque
 data:
-  adminUser: YWRtaW4=
+  POSTGRES_USER: YWRtaW4=
   # TODO: replace with a secure password
-  adminPassword: cG9zdGdyZXNwYXNzd29yZA==
+  POSTGRES_PASSWORD: cG9zdGdyZXNwYXNzd29yZA==
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -14,5 +14,6 @@ metadata:
   name: fwends-postgres
 data:
   # TODO: replace if using external postgres
-  host: fwends-postgres.default.svc.cluster.local
-  db: fwends
+  POSTGRES_ENDPOINT: fwends-postgres.default.svc.cluster.local:5432
+  POSTGRES_DB: fwends
+  POSTGRES_SSL_MODE: disable
