@@ -60,6 +60,7 @@ func main() {
 	router.PUT("/api/packs/:pack_id", api.UpdatePack(db))
 	router.DELETE("/api/packs/:pack_id", api.DeletePack(db))
 	router.PUT("/api/packs/:pack_id/:role_id/:string_id", api.UploadPackResource(db, s3c))
+	router.DELETE("/api/packs/:pack_id/:role_id/:string_id", api.DeletePackString(db, s3c))
 
 	log.WithFields(log.Fields{
 		"podIndex": podIndex,

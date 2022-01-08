@@ -8,6 +8,7 @@ import (
 	"fwends-backend/util"
 	"net/http"
 	"regexp"
+	"sync"
 
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -25,6 +26,7 @@ curl -X PUT http://localhost:8080/api/packs/6882582496895041536 -d '{"title":"Up
 curl -X DELETE http://localhost:8080/api/packs/6882582496895041536
 curl -X PUT http://localhost:8080/api/packs/6882582496895041536/role/string -H 'Content-Type: image/png' --data-binary "@path/to/image.png"
 curl -X PUT http://localhost:8080/api/packs/6882582496895041536/role/string -H 'Content-Type: audio/mpeg' --data-binary "@path/to/audio.mp3"
+curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role/string
 */
 
 var identifierExpression = regexp.MustCompile(`^[a-z0-9_]{1,63}$`)
@@ -351,6 +353,117 @@ func UploadPackResource(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 				"bucket": bucket,
 				"key":    key,
 			}).Info("Uploaded new pack resource")
+		}
+
+		// commit current transaction
+		err = tx.Commit()
+		if err != nil {
+			util.Error(w, http.StatusInternalServerError)
+			log.WithError(err).Error("Failed to commit pack upload")
+			return
+		}
+
+		util.OK(w)
+
+	}
+}
+
+func DeletePackString(db *sql.DB, s3c *s3.Client) httprouter.Handle {
+	bucket := viper.GetString("s3_media_bucket")
+	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+		// get path params
+		packID := ps.ByName("pack_id")
+		roleID := ps.ByName("role_id")
+		stringID := ps.ByName("string_id")
+
+		// begin a new transcation
+		tx, err := db.BeginTx(r.Context(), nil)
+		if err != nil {
+			util.Error(w, http.StatusInternalServerError)
+			log.WithError(err).Error("Failed to begin postgres transcation")
+			return
+		}
+		defer tx.Rollback()
+
+		// update resources to be not ready state
+		result, err := tx.ExecContext(
+			r.Context(),
+			"UPDATE packResources SET ready = FALSE WHERE packId = $1 AND roleId = $2 AND stringId = $3",
+			packID, roleID, stringID,
+		)
+		if err != nil {
+			util.Error(w, http.StatusInternalServerError)
+			log.WithError(err).Error("Failed to mark pack resource as not ready")
+			return
+		}
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected == 0 {
+			util.Error(w, http.StatusBadRequest)
+			log.WithFields(log.Fields{
+				"rowsAffected": rowsAffected,
+			}).Error("Failed to mark pack resource as not ready")
+			return
+		}
+
+		// commit current transaction and start a new one
+		err = tx.Commit()
+		if err != nil {
+			util.Error(w, http.StatusInternalServerError)
+			log.WithError(err).Error("Failed to commit pack resource delete")
+			return
+		}
+		tx, err = db.BeginTx(r.Context(), nil)
+		if err != nil {
+			util.Error(w, http.StatusInternalServerError)
+			log.WithError(err).Error("Failed to begin postgres transaction")
+			return
+		}
+		defer tx.Rollback()
+
+		// delete resource rows (not commited yet)
+		_, err = tx.ExecContext(
+			r.Context(),
+			"DELETE FROM packResources WHERE packId = $1 AND roleId = $2 AND stringId = $3 AND ready = FALSE",
+			packID, roleID, stringID,
+		)
+		if err != nil {
+			util.Error(w, http.StatusInternalServerError)
+			log.WithError(err).Error("Failed to mark pack resource as not ready")
+			return
+		}
+
+		// delete objects from s3
+		resourceClasses := []string{"image", "audio"}
+		cerr := make(chan error, len(resourceClasses))
+		var wg sync.WaitGroup
+		for _, class := range resourceClasses {
+			wg.Add(1)
+			go func(class string) {
+				defer wg.Done()
+				key := resourceKey(packID, roleID, stringID, class)
+				_, err := s3c.DeleteObject(r.Context(), &s3.DeleteObjectInput{
+					Bucket: &bucket,
+					Key:    &key,
+				})
+				if err != nil {
+					cerr <- err
+				}
+			}(class)
+		}
+		wg.Wait()
+
+		// handle errors produced by object deletes
+	loop:
+		for {
+			select {
+			case err := <-cerr:
+				util.Error(w, http.StatusInternalServerError)
+				log.WithError(err).Error("Failed to delete pack resource object")
+				return
+			default:
+				break loop
+			}
 		}
 
 		// commit current transaction
