@@ -1,26 +1,20 @@
 CREATE TABLE admins (
-	email VARCHAR(255) PRIMARY KEY
+	email varchar(255) PRIMARY KEY
 );
 
 CREATE TABLE packs (
-	id BIGINT PRIMARY KEY,
-	title VARCHAR(255) NOT NULL
+	id bigint PRIMARY KEY,
+	title varchar(255) NOT NULL
 );
 
-CREATE TABLE packImages (
-	packId BIGINT,
-	roleId VARCHAR(63) NOT NULL,
-	stringId VARCHAR(63) NOT NULL,
-	extension VARCHAR(3) NOT NULL,
-	FOREIGN KEY (packId) REFERENCES packs(id),
-	PRIMARY KEY(packId, roleId, stringId)
-);
+CREATE TYPE packResourceClass AS ENUM ('image', 'audio');
 
-CREATE TABLE packSounds (
-	packId BIGINT,
-	roleId VARCHAR(63) NOT NULL,
-	stringId VARCHAR(63) NOT NULL,
-	extension VARCHAR(3) NOT NULL,
+CREATE TABLE packResources (
+	packId bigint,
+	roleId varchar(63) NOT NULL,
+	stringId varchar(63) NOT NULL,
+	class packResourceClass NOT NULL,
+	ready boolean NOT NULL,
 	FOREIGN KEY (packId) REFERENCES packs(id),
-	PRIMARY KEY(packId, roleId, stringId)
+	PRIMARY KEY (packId, roleId, stringId, class)
 );

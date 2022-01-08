@@ -26,6 +26,7 @@ func main() {
 	viper.BindEnv("s3_region")
 	viper.BindEnv("s3_access_key")
 	viper.BindEnv("s3_secret_key")
+	viper.BindEnv("s3_media_bucket")
 
 	viper.SetDefault("auth_enable", true)
 	viper.SetDefault("postgres_ssl_mode", "require")
@@ -55,9 +56,10 @@ func main() {
 	router.GET("/api/auth", api.AuthVerify(rdb))
 	router.GET("/api/auth/config", api.AuthConfig())
 	router.POST("/api/packs/", api.CreatePack(db, snowflake))
-	router.GET("/api/packs/:id", api.GetPack(db))
-	router.PUT("/api/packs/:id", api.UpdatePack(db))
-	router.DELETE("/api/packs/:id", api.DeletePack(db))
+	router.GET("/api/packs/:pack_id", api.GetPack(db))
+	router.PUT("/api/packs/:pack_id", api.UpdatePack(db))
+	router.DELETE("/api/packs/:pack_id", api.DeletePack(db))
+	router.PUT("/api/packs/:pack_id/:role_id/:string_id", api.UploadPackResource(db, s3c))
 
 	log.WithFields(log.Fields{
 		"podIndex": podIndex,
