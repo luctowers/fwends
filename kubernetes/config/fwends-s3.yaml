@@ -16,3 +16,4 @@ data:
   # TODO: replace if using a s3 compatible cloud storage service
   S3_ENDPOINT: http://fwends-minio.default.svc.cluster.local:9000
   S3_REGION: us-east-1
+  S3_MEDIA_BUCKET: media
