@@ -17,6 +17,6 @@ CREATE TABLE packResources (
 	ready boolean NOT NULL,
 	FOREIGN KEY (packId) REFERENCES packs(id)
 		ON DELETE NO ACTION
-  	ON UPDATE NO ACTION,
+		ON UPDATE NO ACTION,
 	PRIMARY KEY (packId, roleId, stringId, class)
 );
