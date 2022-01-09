@@ -31,108 +31,154 @@ curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role
 curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role/string
 */
 
-var identifierExpression = regexp.MustCompile(`^[a-z0-9_]{1,63}$`)
-
-type packBody struct {
-	Title string `json:"title"`
-}
-
-type idResponse struct {
-	ID int64 `json:"id,string"`
-}
-
+// POST /api/packs/
+//
+// Creates an new pack with a title and returns the id.
 func CreatePack(db *sql.DB, snowflake *util.SnowflakeGenerator) httprouter.Handle {
+	type requestBody struct {
+		Title string `json:"title"`
+	}
+	type responseBody struct {
+		// encode as string because javascript doesn't play nice with 64-bit ints
+		ID int64 `json:"id,string"`
+	}
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
+		// decode request body
 		decoder := json.NewDecoder(r.Body)
-		var body packBody
-		err := decoder.Decode(&body)
+		var reqbody requestBody
+		err := decoder.Decode(&reqbody)
 		if err != nil {
 			util.Error(w, http.StatusBadRequest)
 			log.WithError(err).Warn("Failed to decode pack body")
-		} else if len(body.Title) == 0 {
+			return
+		} else if len(reqbody.Title) == 0 {
 			util.Error(w, http.StatusBadRequest)
 			log.Warn("Empty pack title is not allowed")
-		} else {
-			id := snowflake.GenID()
-			_, err := db.ExecContext(r.Context(), "INSERT INTO packs (id, title) VALUES ($1, $2)", id, body.Title)
-			if err != nil {
-				util.Error(w, http.StatusInternalServerError)
-				log.WithError(err).Error("Failed to insert new pack")
-			} else {
-				w.Header().Set("Content-Type", "application/json")
-				var response idResponse
-				response.ID = id
-				json.NewEncoder(w).Encode(response)
-			}
+			return
 		}
+
+		// this id will be used for the life of pack
+		id := snowflake.GenID()
+
+		// insert pack row in postgres
+		_, err = db.ExecContext(
+			r.Context(), "INSERT INTO packs (id, title) VALUES ($1, $2)",
+			id, reqbody.Title,
+		)
+		if err != nil {
+			util.Error(w, http.StatusInternalServerError)
+			log.WithError(err).Error("Failed to insert new pack")
+			return
+		}
+
+		// respond to reqquest
+		w.Header().Set("Content-Type", "application/json")
+		var resbody responseBody
+		resbody.ID = id
+		json.NewEncoder(w).Encode(resbody)
+
 	}
 }
 
+// GET /api/packs/:pack_id
+//
+// Gets a pack's title.
 func GetPack(db *sql.DB) httprouter.Handle {
+	type responseBody struct {
+		Title string `json:"title"`
+	}
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+		// get path params
 		id := ps.ByName("pack_id")
+
+		// query postgres for title
 		rows, err := db.QueryContext(r.Context(), "SELECT title FROM packs WHERE id = $1;", id)
 		if err != nil {
 			util.Error(w, http.StatusInternalServerError)
 			log.WithError(err).Error("Failed to get pack")
-		} else {
-			defer rows.Close()
-			if !rows.Next() {
-				// no row was returned
-				util.Error(w, http.StatusNotFound)
-				log.Warn("Failed to get pack, it probably doesn't exist")
-			} else {
-				var body packBody
-				err := rows.Scan(&body.Title)
-				if err != nil {
-					util.Error(w, http.StatusInternalServerError)
-					log.WithError(err).Error("Failed to scan pack")
-				} else {
-					w.Header().Set("Content-Type", "application/json")
-					json.NewEncoder(w).Encode(body)
-				}
-			}
+			return
 		}
+		defer rows.Close()
+		if !rows.Next() {
+			// no row was returned
+			util.Error(w, http.StatusNotFound)
+			log.Warn("Failed to get pack, it probably doesn't exist")
+			return
+		}
+
+		// respond to request
+		var resbody responseBody
+		err = rows.Scan(&resbody.Title)
+		if err != nil {
+			util.Error(w, http.StatusInternalServerError)
+			log.WithError(err).Error("Failed to scan pack")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resbody)
+
 	}
 }
 
+// PUT /api/packs/:pack_id
+//
+// Updates a pack's title.
 func UpdatePack(db *sql.DB) httprouter.Handle {
+	type requestBody struct {
+		Title string `json:"title"`
+	}
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+		// get path params
+		id := ps.ByName("pack_id")
+
+		// decode request body
 		decoder := json.NewDecoder(r.Body)
-		var body packBody
-		err := decoder.Decode(&body)
+		var reqbody requestBody
+		err := decoder.Decode(&reqbody)
 		if err != nil {
 			util.Error(w, http.StatusBadRequest)
 			log.WithError(err).Warn("Failed to decode pack body")
-		} else if len(body.Title) == 0 {
+			return
+		} else if len(reqbody.Title) == 0 {
 			util.Error(w, http.StatusBadRequest)
 			log.Warn("Empty pack title is not allowed")
-		} else {
-			id := ps.ByName("pack_id")
-			res, err := db.ExecContext(r.Context(), "UPDATE packs SET title = $2 WHERE id = $1;", id, body.Title)
-			if err != nil {
-				util.Error(w, http.StatusInternalServerError)
-				log.WithError(err).Error("Failed to update pack")
-			} else {
-				affected, err := res.RowsAffected()
-				if err != nil {
-					util.Error(w, http.StatusInternalServerError)
-					log.WithError(err).Error("Failed to get rows affected")
-				} else if affected != 1 {
-					util.Error(w, http.StatusBadRequest)
-					log.WithFields(log.Fields{
-						"rowsAffected": affected,
-					}).Warn("Failed to update pack, it probably doesn't exist")
-				} else {
-					util.OK(w)
-				}
-			}
+			return
 		}
+
+		// update pack title
+		res, err := db.ExecContext(r.Context(), "UPDATE packs SET title = $2 WHERE id = $1;", id, reqbody.Title)
+		if err != nil {
+			util.Error(w, http.StatusInternalServerError)
+			log.WithError(err).Error("Failed to update pack")
+		}
+
+		// check whether anything was updated
+		affected, err := res.RowsAffected()
+		if err != nil {
+			util.Error(w, http.StatusInternalServerError)
+			log.WithError(err).Error("Failed to get rows affected")
+			return
+		} else if affected != 1 {
+			util.Error(w, http.StatusBadRequest)
+			log.WithFields(log.Fields{
+				"rowsAffected": affected,
+			}).Warn("Failed to update pack, it probably doesn't exist")
+			return
+		}
+
+		util.OK(w)
+
 	}
 }
 
+// PUT /api/packs/:pack_id/:role_id/:string_id
+//
+// Adds or replaces a image or audio pack resource.
 func UploadPackResource(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	bucket := viper.GetString("s3_media_bucket")
+	identifierExpression := regexp.MustCompile(`^[a-z0-9_]{1,63}$`)
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 		// get path params
@@ -308,6 +354,9 @@ func UploadPackResource(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	}
 }
 
+// DELETE /api/packs/:pack_id
+//
+// Deletes a pack and its ascociated resources.
 func DeletePack(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	bucket := viper.GetString("s3_media_bucket")
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -357,6 +406,9 @@ func DeletePack(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	}
 }
 
+// DELETE /api/packs/:pack_id/:role_id
+//
+// Deletes all pack resources belonging to a role.
 func DeletePackRole(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	bucket := viper.GetString("s3_media_bucket")
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -365,6 +417,7 @@ func DeletePackRole(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 		packID := ps.ByName("pack_id")
 		roleID := ps.ByName("role_id")
 
+		// delete resources
 		err := deleteRelatedResources(r.Context(), db, s3c, &bucket, &packID, &roleID, nil)
 		if err != nil {
 			if err != nil {
@@ -386,6 +439,9 @@ func DeletePackRole(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	}
 }
 
+// PUT /api/packs/:pack_id/:role_id/:string_id
+//
+// Deletes all pack resources belonging to a string.
 func DeletePackString(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	bucket := viper.GetString("s3_media_bucket")
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -395,6 +451,7 @@ func DeletePackString(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 		roleID := ps.ByName("role_id")
 		stringID := ps.ByName("string_id")
 
+		// delete resources
 		err := deleteRelatedResources(r.Context(), db, s3c, &bucket, &packID, &roleID, &stringID)
 		if err != nil {
 			if err != nil {
@@ -418,20 +475,24 @@ func DeletePackString(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 
 // HELPERS
 
+// returned by deleteRelatedResources when do resources are found to delete
 type noResourcesFoundError struct{}
 
 func (e *noResourcesFoundError) Error() string {
 	return "no pack resources found"
 }
 
+// Shared functionality for all pack delete operations
 func deleteRelatedResources(ctx context.Context, db *sql.DB, s3c *s3.Client, bucket *string, packID *string, roleID *string, stringID *string) error {
 
+	// each mode corresponds one of the above http DELETE specificities
 	const (
 		deletePackMode   = 0
 		deleteRoleMode   = 1
 		deleteStringMode = 2
 	)
 
+	// detect mode
 	var mode int
 	switch {
 	case packID != nil && roleID == nil && stringID == nil:
@@ -521,6 +582,7 @@ func deleteRelatedResources(ctx context.Context, db *sql.DB, s3c *s3.Client, buc
 			return err
 		}
 
+		// delete the object from s3
 		key := resourceKey(*packID, id.roleID, id.stringID, id.class)
 		_, err = s3c.DeleteObject(ctx, &s3.DeleteObjectInput{
 			Bucket: bucket,
@@ -543,6 +605,7 @@ func deleteRelatedResources(ctx context.Context, db *sql.DB, s3c *s3.Client, buc
 
 }
 
+// Generates a s3 key for a resource.
 func resourceKey(packID string, roleID string, stringID string, resourceClass string) string {
 	return fmt.Sprintf(
 		"packs/%s/%s/%s/%s",
@@ -554,8 +617,10 @@ func resourceKey(packID string, roleID string, stringID string, resourceClass st
 }
 
 func deriveResourceClass(contentType string) (string, error) {
-	// detemine resource type from extension
+	// determine resource type from extension
 	switch contentType {
+
+	// image content types
 	case "image/webp":
 		fallthrough
 	case "image/bmp":
@@ -568,6 +633,8 @@ func deriveResourceClass(contentType string) (string, error) {
 		fallthrough
 	case "image/svg+xml":
 		return "image", nil
+
+	// audio content types
 	case "audio/aac":
 		fallthrough
 	case "audio/mpeg":
@@ -582,6 +649,8 @@ func deriveResourceClass(contentType string) (string, error) {
 		fallthrough
 	case "audio/flac":
 		return "audio", nil
+
+	// unknown content types
 	default:
 		return "", errors.New("unsupported pack resource content type")
 	}
