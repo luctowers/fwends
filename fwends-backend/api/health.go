@@ -14,17 +14,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type healthInfo struct {
-	Services healthServiceInfo `json:"services"`
-}
-
-type healthServiceInfo struct {
-	Postgres bool `json:"postgres"`
-	Redis    bool `json:"redis"`
-	S3       bool `json:"s3"`
-}
-
+// GET /api/health
+//
+// Gets the health of the services that the backend depends on.
 func HealthCheck(db *sql.DB, rdb *redis.Client, s3c *s3.Client) httprouter.Handle {
+	type serviceInfo struct {
+		Postgres bool `json:"postgres"`
+		Redis    bool `json:"redis"`
+		S3       bool `json:"s3"`
+	}
+	type responseBody struct {
+		Services serviceInfo `json:"services"`
+	}
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 		// context that times out after 3 seconds, or when finish is called
@@ -73,19 +74,20 @@ func HealthCheck(db *sql.DB, rdb *redis.Client, s3c *s3.Client) httprouter.Handl
 			cs3c <- err == nil
 		}()
 
-		// select loop
-		var health healthInfo
+		var resbody responseBody
 	loop:
 		for {
 			select {
-			case health.Services.Postgres = <-cdb:
-			case health.Services.Redis = <-crdb:
-			case health.Services.S3 = <-cs3c:
+			// status received from service
+			case resbody.Services.Postgres = <-cdb:
+			case resbody.Services.Redis = <-crdb:
+			case resbody.Services.S3 = <-cs3c:
+			// all service statuses rececived or timed out
 			case <-ctx.Done():
-				json.NewEncoder(w).Encode(health)
+				json.NewEncoder(w).Encode(resbody)
 				break loop
+			// request cancelled
 			case <-r.Context().Done():
-				// request cancelled
 				break loop
 			}
 		}
