@@ -58,9 +58,10 @@ func main() {
 	router.POST("/api/packs/", api.CreatePack(db, snowflake))
 	router.GET("/api/packs/:pack_id", api.GetPack(db))
 	router.PUT("/api/packs/:pack_id", api.UpdatePack(db))
-	router.DELETE("/api/packs/:pack_id", api.DeletePack(db))
-	router.PUT("/api/packs/:pack_id/:role_id/:string_id", api.UploadPackResource(db, s3c))
+	router.DELETE("/api/packs/:pack_id", api.DeletePack(db, s3c))
+	router.DELETE("/api/packs/:pack_id/:role_id", api.DeletePackRole(db, s3c))
 	router.DELETE("/api/packs/:pack_id/:role_id/:string_id", api.DeletePackString(db, s3c))
+	router.PUT("/api/packs/:pack_id/:role_id/:string_id", api.UploadPackResource(db, s3c))
 
 	log.WithFields(log.Fields{
 		"podIndex": podIndex,

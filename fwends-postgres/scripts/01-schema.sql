@@ -15,6 +15,8 @@ CREATE TABLE packResources (
 	stringId varchar(63) NOT NULL,
 	class packResourceClass NOT NULL,
 	ready boolean NOT NULL,
-	FOREIGN KEY (packId) REFERENCES packs(id),
+	FOREIGN KEY (packId) REFERENCES packs(id)
+		ON DELETE NO ACTION
+  	ON UPDATE NO ACTION,
 	PRIMARY KEY (packId, roleId, stringId, class)
 );
