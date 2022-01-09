@@ -13,6 +13,9 @@ import (
 )
 
 func main() {
+
+	// bind environment vairables to viper configuration
+	viper.BindEnv("http_port")
 	viper.BindEnv("auth_enable")
 	viper.BindEnv("google_client_id")
 	viper.BindEnv("postgres_endpoint")
@@ -28,9 +31,12 @@ func main() {
 	viper.BindEnv("s3_secret_key")
 	viper.BindEnv("s3_media_bucket")
 
+	// set config defaults
+	viper.SetDefault("http_port", 80)
 	viper.SetDefault("auth_enable", true)
 	viper.SetDefault("postgres_ssl_mode", "require")
 
+	// open database connections
 	db, err := connections.OpenPostgres()
 	if err != nil {
 		log.WithError(err).Fatal("Failed to create postgres client")
@@ -41,6 +47,7 @@ func main() {
 		log.WithError(err).Fatal("Failed to create s3 client")
 	}
 
+	// initialize id generator
 	podIndex, err := util.PodIndex()
 	if err != nil {
 		log.WithError(err).Fatal("Failed to determine pod index")
@@ -50,6 +57,7 @@ func main() {
 		log.WithError(err).Fatal("Failed to create snowflake id generator")
 	}
 
+	// register http routes
 	router := httprouter.New()
 	router.GET("/api/health", api.HealthCheck(db, rdb, s3c))
 	router.POST("/api/auth", api.Authenticate(db, rdb))
@@ -63,8 +71,10 @@ func main() {
 	router.DELETE("/api/packs/:pack_id/:role_id/:string_id", api.DeletePackString(db, s3c))
 	router.PUT("/api/packs/:pack_id/:role_id/:string_id", api.UploadPackResource(db, s3c))
 
+	// start the server
 	log.WithFields(log.Fields{
 		"podIndex": podIndex,
 	}).Info("Starting http server")
-	log.Fatal(http.ListenAndServe(":80", router))
+	log.Fatal(http.ListenAndServe(":"+viper.GetString("http_port"), router))
+
 }
