@@ -18,6 +18,7 @@ func main() {
 	// bind environment vairables to viper configuration
 	viper.AllowEmptyEnv(false)
 	viper.BindEnv("http_port")
+	viper.BindEnv("http_debug")
 	viper.BindEnv("auth_enable")
 	viper.BindEnv("session_id_size")
 	viper.BindEnv("session_ttl")
@@ -39,6 +40,7 @@ func main() {
 
 	// set config defaults
 	viper.SetDefault("http_port", 80)
+	viper.SetDefault("http_debug", false)
 	viper.SetDefault("auth_enable", true)
 	viper.SetDefault("session_id_size", 32)
 	viper.SetDefault("session_ttl", 24*time.Hour)
