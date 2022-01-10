@@ -5,6 +5,7 @@ import (
 	"fwends-backend/connections"
 	"fwends-backend/util"
 	"net/http"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
@@ -15,8 +16,13 @@ import (
 func main() {
 
 	// bind environment vairables to viper configuration
+	viper.AllowEmptyEnv(false)
 	viper.BindEnv("http_port")
 	viper.BindEnv("auth_enable")
+	viper.BindEnv("session_id_size")
+	viper.BindEnv("session_ttl")
+	viper.BindEnv("session_cookie")
+	viper.BindEnv("session_redis_prefix")
 	viper.BindEnv("google_client_id")
 	viper.BindEnv("postgres_endpoint")
 	viper.BindEnv("postgres_user")
@@ -34,6 +40,10 @@ func main() {
 	// set config defaults
 	viper.SetDefault("http_port", 80)
 	viper.SetDefault("auth_enable", true)
+	viper.SetDefault("session_id_size", 32)
+	viper.SetDefault("session_ttl", 24*time.Hour)
+	viper.SetDefault("session_cookie", "fwends_session")
+	viper.SetDefault("session_redis_prefix", "session/")
 	viper.SetDefault("postgres_ssl_mode", "require")
 
 	// open database connections
