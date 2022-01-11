@@ -46,7 +46,8 @@ func WrapDecoratedHandle(fn DecoratedHandle) httprouter.Handle {
 
 		// call the decorated handler
 		status, err := fn(&wrap, r, ps, logger)
-		logger.WithField("status", status).Debug("Request processed")
+		logger = logger.WithField("status", status)
+		logger.Debug("Request processed")
 
 		// log any returned error, with log level corresponding to status
 		if err != nil {
@@ -59,6 +60,15 @@ func WrapDecoratedHandle(fn DecoratedHandle) httprouter.Handle {
 			default:
 				logger.Info("Error returned by http handler")
 			}
+		}
+
+		// return if the request has been cancelled or interrupted
+		// because there is no point in writing any response now
+		select {
+		case <-r.Context().Done():
+			logger.Warn("Request cancelled or interrupted")
+			return
+		default:
 		}
 
 		if wrap.HeaderWritten { // status and header already written
