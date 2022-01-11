@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"fwends-backend/util"
 	"io"
 	"net/http"
@@ -48,10 +49,13 @@ func AuthConfig() httprouter.Handle {
 		log.WithError(err).Fatal("Failed to encode auth info")
 	}
 
-	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(bytes)
-	}
+	return util.WrapDecoratedHandle(
+		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(bytes)
+			return http.StatusOK, nil
+		},
+	)
 
 }
 
@@ -62,43 +66,47 @@ func AuthVerify(rdb *redis.Client) httprouter.Handle {
 
 	if !viper.GetBool("auth_enable") {
 
-		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-			util.Error(w, http.StatusMisdirectedRequest)
-		}
+		return util.WrapDecoratedHandle(
+			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
+				return http.StatusMisdirectedRequest, errors.New("authentication is not enabled")
+			},
+		)
 
 	} else {
 
 		sessionCookie := viper.GetString("session_cookie")
 		sessionRedisPrefix := viper.GetString("session_redis_prefix")
 
-		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		return util.WrapDecoratedHandle(
+			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
 
-			// determine authentication status via redis
-			var authenticated bool
-			session, err := r.Cookie(sessionCookie)
-			if err != nil { // cookie not found
-				authenticated = false
-			} else {
-				key := sessionRedisPrefix + session.Value
-				exists, err := rdb.Exists(r.Context(), key).Result()
-				if err != nil {
-					util.Error(w, http.StatusInternalServerError)
-					log.WithError(err).Error("Failed to get session key from redis")
-					return
+				// determine authentication status via redis
+				var authenticated bool
+				session, err := r.Cookie(sessionCookie)
+				if err != nil { // cookie not found
+					authenticated = false
 				} else {
-					authenticated = exists == 1
+					key := sessionRedisPrefix + session.Value
+					exists, err := rdb.Exists(r.Context(), key).Result()
+					if err != nil {
+						return http.StatusInternalServerError, err
+					} else {
+						authenticated = exists == 1
+					}
 				}
-			}
 
-			// respond
-			w.Header().Set("Content-Type", "application/json")
-			if authenticated {
-				w.Write([]byte("true"))
-			} else {
-				w.Write([]byte("false"))
-			}
+				// respond
+				w.Header().Set("Content-Type", "application/json")
+				if authenticated {
+					w.Write([]byte("true"))
+				} else {
+					w.Write([]byte("false"))
+				}
 
-		}
+				return http.StatusOK, nil
+
+			},
+		)
 
 	}
 
@@ -109,9 +117,13 @@ func AuthVerify(rdb *redis.Client) httprouter.Handle {
 // Receives a token from the user, aunticates it and creates a session.
 func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 	if !viper.GetBool("auth_enable") {
-		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-			util.Error(w, http.StatusMisdirectedRequest)
-		}
+
+		return util.WrapDecoratedHandle(
+			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
+				return http.StatusMisdirectedRequest, errors.New("authentication is not enabled")
+			},
+		)
+
 	} else {
 
 		type requestBody struct {
@@ -129,79 +141,71 @@ func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 		sessionCookie := viper.GetString("session_cookie")
 		sessionRedisPrefix := viper.GetString("session_redis_prefix")
 
-		return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		return util.WrapDecoratedHandle(
+			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
 
-			// decode request body
-			decoder := json.NewDecoder(r.Body)
-			var reqbody requestBody
-			err := decoder.Decode(&reqbody)
-			if err != nil {
-				util.Error(w, http.StatusBadRequest)
-				log.WithError(err).Warn("Failed to decode authentication body")
-				return
-			}
-
-			// get verified email from token
-			var email string
-			switch reqbody.Service {
-			case "google":
-				email, err = getEmailFromGoogleToken(reqbody.Token, services.google)
+				// decode request body
+				decoder := json.NewDecoder(r.Body)
+				var reqbody requestBody
+				err := decoder.Decode(&reqbody)
 				if err != nil {
-					util.Error(w, http.StatusBadRequest)
-					log.WithError(err).Warn("Failed to get email from google token")
-					return
+					return http.StatusBadRequest, fmt.Errorf("failed to decode request body: %v", err)
 				}
-			default:
-				util.Error(w, http.StatusBadRequest)
-				log.WithFields(log.Fields{
-					"service": reqbody.Service,
-				}).Warn("Unrecognized auth service")
-				return
-			}
 
-			// check whether email is admin
-			rows, err := db.QueryContext(r.Context(), "SELECT 1 FROM admins WHERE email = $1", email)
-			if err != nil {
-				util.Error(w, http.StatusInternalServerError)
-				log.WithError(err).Error("Failed to query postgres for admin email")
-			}
-			defer rows.Close()
-			if !rows.Next() {
-				// no row was returned, so the email is not admin
-				util.Error(w, http.StatusUnauthorized)
-				log.Warn("Unauthorized authentication attempt")
-				return
-			}
+				// get verified email from token
+				var email string
+				switch reqbody.Service {
+				case "google":
+					email, err = getEmailFromGoogleToken(reqbody.Token, services.google)
+					if err != nil {
+						return http.StatusBadRequest, err
+					}
+				default:
+					return http.StatusBadRequest, fmt.Errorf("unrecognized auth service: %v", reqbody.Service)
+				}
 
-			// create session
-			id := make([]byte, sessionIDSize)
-			n, err := io.ReadFull(rand.Reader, id[:])
-			if err != nil || n != sessionIDSize {
-				util.Error(w, http.StatusInternalServerError)
-				log.WithError(err).Error("Failed to create secure session id")
-				return
-			}
-			idB64 := base64.StdEncoding.EncodeToString(id[:])
-			key := sessionRedisPrefix + idB64
-			val, err := rdb.SetNX(r.Context(), key, true, sessionTTL).Result()
-			if err != nil || !val {
-				util.Error(w, http.StatusInternalServerError)
-				log.WithError(err).Error("Failed to set session key in redis")
-				return
-			}
+				// check whether email is admin
+				rows, err := db.QueryContext(r.Context(), "SELECT 1 FROM admins WHERE email = $1", email)
+				if err != nil {
+					return http.StatusInternalServerError, err
+				}
+				defer rows.Close()
+				if !rows.Next() {
+					// no row was returned, so the email is not admin
+					return http.StatusUnauthorized, errors.New("unauthorized authentication attempt")
+				}
 
-			// everything succeeded
-			sessionCookie := http.Cookie{
-				Name:     sessionCookie,
-				Value:    idB64,
-				MaxAge:   int(sessionTTL.Seconds()),
-				Secure:   true,
-				HttpOnly: true,
-			}
-			http.SetCookie(w, &sessionCookie)
-			util.OK(w)
+				// create session
+				id := make([]byte, sessionIDSize)
+				n, err := io.ReadFull(rand.Reader, id[:])
+				if err != nil {
+					return http.StatusInternalServerError, err
+				} else if n != sessionIDSize {
+					return http.StatusInternalServerError, errors.New("session id generation failed")
+				}
+				idB64 := base64.StdEncoding.EncodeToString(id[:])
+				key := sessionRedisPrefix + idB64
+				val, err := rdb.SetNX(r.Context(), key, true, sessionTTL).Result()
+				if err != nil {
+					return http.StatusInternalServerError, err
+				} else if !val {
+					return http.StatusInternalServerError, errors.New("session id collision")
+				}
 
-		}
+				// everything succeeded
+				sessionCookie := http.Cookie{
+					Name:     sessionCookie,
+					Value:    idB64,
+					MaxAge:   int(sessionTTL.Seconds()),
+					Secure:   true,
+					HttpOnly: true,
+				}
+				http.SetCookie(w, &sessionCookie)
+
+				return http.StatusOK, nil
+
+			},
+		)
 
 	}
 }
