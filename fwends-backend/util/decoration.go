@@ -89,6 +89,7 @@ func WrapDecoratedHandle(fn DecoratedHandle) httprouter.Handle {
 			//   "message": "Internal Server Error",
 			//   "error": "this bit is omittted when http_debug is not true"
 			// }
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(status)
 			resbody := responseBody{
 				Status:  status,
