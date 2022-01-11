@@ -42,43 +42,41 @@ func CreatePack(db *sql.DB, snowflake *util.SnowflakeGenerator) httprouter.Handl
 		// encode as string because javascript doesn't play nice with 64-bit ints
 		ID int64 `json:"id,string"`
 	}
-	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	return util.WrapDecoratedHandle(
+		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
 
-		// decode request body
-		decoder := json.NewDecoder(r.Body)
-		var reqbody requestBody
-		err := decoder.Decode(&reqbody)
-		if err != nil {
-			util.Error(w, http.StatusBadRequest)
-			log.WithError(err).Warn("Failed to decode pack body")
-			return
-		} else if len(reqbody.Title) == 0 {
-			util.Error(w, http.StatusBadRequest)
-			log.Warn("Empty pack title is not allowed")
-			return
-		}
+			// decode request body
+			decoder := json.NewDecoder(r.Body)
+			var reqbody requestBody
+			err := decoder.Decode(&reqbody)
+			if err != nil {
+				return http.StatusBadRequest, fmt.Errorf("failed to decode resonse body: %v", err)
+			} else if len(reqbody.Title) == 0 {
+				return http.StatusBadRequest, errors.New("empty pack title is not allowed")
+			}
 
-		// this id will be used for the life of pack
-		id := snowflake.GenID()
+			// this id will be used for the life of pack
+			id := snowflake.GenID()
 
-		// insert pack row in postgres
-		_, err = db.ExecContext(
-			r.Context(), "INSERT INTO packs (id, title) VALUES ($1, $2)",
-			id, reqbody.Title,
-		)
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to insert new pack")
-			return
-		}
+			// insert pack row in postgres
+			_, err = db.ExecContext(
+				r.Context(), "INSERT INTO packs (id, title) VALUES ($1, $2)",
+				id, reqbody.Title,
+			)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
 
-		// respond to reqquest
-		w.Header().Set("Content-Type", "application/json")
-		var resbody responseBody
-		resbody.ID = id
-		json.NewEncoder(w).Encode(resbody)
+			// respond to reqquest
+			w.Header().Set("Content-Type", "application/json")
+			var resbody responseBody
+			resbody.ID = id
+			json.NewEncoder(w).Encode(resbody)
 
-	}
+			return http.StatusOK, nil
+
+		},
+	)
 }
 
 // GET /api/packs/:pack_id
@@ -88,37 +86,36 @@ func GetPack(db *sql.DB) httprouter.Handle {
 	type responseBody struct {
 		Title string `json:"title"`
 	}
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	return util.WrapDecoratedHandle(
+		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *log.Entry) (int, error) {
 
-		// get path params
-		id := ps.ByName("pack_id")
+			// get path params
+			id := ps.ByName("pack_id")
 
-		// query postgres for title
-		rows, err := db.QueryContext(r.Context(), "SELECT title FROM packs WHERE id = $1;", id)
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to get pack")
-			return
-		}
-		defer rows.Close()
-		if !rows.Next() {
-			// no row was returned
-			util.Error(w, http.StatusNotFound)
-			log.Warn("Failed to get pack, it probably doesn't exist")
-			return
-		}
+			// query postgres for title
+			rows, err := db.QueryContext(r.Context(), "SELECT title FROM packs WHERE id = $1;", id)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			defer rows.Close()
+			if !rows.Next() {
+				// no row was returned
+				return http.StatusNotFound, errors.New("pack not found")
+			}
 
-		// respond to request
-		var resbody responseBody
-		err = rows.Scan(&resbody.Title)
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to scan pack")
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resbody)
+			// respond to request
+			var resbody responseBody
+			err = rows.Scan(&resbody.Title)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resbody)
 
-	}
+			return http.StatusOK, nil
+
+		},
+	)
 }
 
 // PUT /api/packs/:pack_id
@@ -128,49 +125,41 @@ func UpdatePack(db *sql.DB) httprouter.Handle {
 	type requestBody struct {
 		Title string `json:"title"`
 	}
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	return util.WrapDecoratedHandle(
+		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *log.Entry) (int, error) {
 
-		// get path params
-		id := ps.ByName("pack_id")
+			// get path params
+			id := ps.ByName("pack_id")
 
-		// decode request body
-		decoder := json.NewDecoder(r.Body)
-		var reqbody requestBody
-		err := decoder.Decode(&reqbody)
-		if err != nil {
-			util.Error(w, http.StatusBadRequest)
-			log.WithError(err).Warn("Failed to decode pack body")
-			return
-		} else if len(reqbody.Title) == 0 {
-			util.Error(w, http.StatusBadRequest)
-			log.Warn("Empty pack title is not allowed")
-			return
-		}
+			// decode request body
+			decoder := json.NewDecoder(r.Body)
+			var reqbody requestBody
+			err := decoder.Decode(&reqbody)
+			if err != nil {
+				return http.StatusBadRequest, fmt.Errorf("failed to decode resonse body: %v", err)
+			} else if len(reqbody.Title) == 0 {
+				return http.StatusBadRequest, errors.New("empty pack title is not allowed")
+			}
 
-		// update pack title
-		res, err := db.ExecContext(r.Context(), "UPDATE packs SET title = $2 WHERE id = $1;", id, reqbody.Title)
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to update pack")
-		}
+			// update pack title
+			res, err := db.ExecContext(r.Context(), "UPDATE packs SET title = $2 WHERE id = $1;", id, reqbody.Title)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
 
-		// check whether anything was updated
-		affected, err := res.RowsAffected()
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to get rows affected")
-			return
-		} else if affected != 1 {
-			util.Error(w, http.StatusBadRequest)
-			log.WithFields(log.Fields{
-				"rowsAffected": affected,
-			}).Warn("Failed to update pack, it probably doesn't exist")
-			return
-		}
+			// check whether anything was updated
+			affected, err := res.RowsAffected()
+			if err != nil {
+				return http.StatusInternalServerError, err
+			} else if affected != 1 {
+				// row was not changed, the pack does not exist
+				return http.StatusNotFound, errors.New("pack not found")
+			}
 
-		util.OK(w)
+			return http.StatusOK, nil
 
-	}
+		},
+	)
 }
 
 // PUT /api/packs/:pack_id/:role_id/:string_id
@@ -179,179 +168,141 @@ func UpdatePack(db *sql.DB) httprouter.Handle {
 func UploadPackResource(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	bucket := viper.GetString("s3_media_bucket")
 	identifierExpression := regexp.MustCompile(`^[a-z0-9_]{1,63}$`)
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	return util.WrapDecoratedHandle(
+		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *log.Entry) (int, error) {
 
-		// get path params
-		packID := ps.ByName("pack_id")
-		roleID := ps.ByName("role_id")
-		stringID := ps.ByName("string_id")
+			// get path params
+			packID := ps.ByName("pack_id")
+			roleID := ps.ByName("role_id")
+			stringID := ps.ByName("string_id")
 
-		// validation
-		if !identifierExpression.MatchString(roleID) {
-			util.Error(w, http.StatusBadRequest)
-			log.WithFields(log.Fields{
-				"roleId": roleID,
-			}).Warn("Failed to validate role id")
-			return
-		}
-		if !identifierExpression.MatchString(stringID) {
-			util.Error(w, http.StatusBadRequest)
-			log.WithFields(log.Fields{
-				"stringId": stringID,
-			}).Warn("Failed to validate string id")
-			return
-		}
-
-		// determine whether upload is audio or image
-		contentType := r.Header.Get("Content-Type")
-		resourceClass, err := deriveResourceClass(contentType)
-		if err != nil {
-			util.Error(w, http.StatusBadRequest)
-			log.WithError(err).WithFields(log.Fields{
-				"contentType": contentType,
-			}).Warn("Failed derive resource class")
-			return
-		}
-
-		// begin a new transcation
-		tx, err := db.BeginTx(r.Context(), nil)
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to begin postgres transcation")
-			return
-		}
-		defer tx.Rollback()
-
-		// check whether resource already exists, and wether is ready state
-		rows, err := tx.QueryContext(
-			r.Context(),
-			"SELECT ready FROM packResources WHERE packId = $1 AND roleId = $2 AND stringId = $3 AND class = $4",
-			packID, roleID, stringID, resourceClass,
-		)
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to check if pack resource exists")
-			return
-		}
-		defer rows.Close()
-		resourceExists := rows.Next()
-		var resourceReady bool
-		if resourceExists {
-			rows.Scan(&resourceReady)
-		}
-		rows.Close()
-
-		if !resourceExists {
-
-			// insert new resource
-			_, err := tx.ExecContext(
-				r.Context(),
-				"INSERT INTO packResources (packId, roleId, stringID, class, ready) VALUES ($1, $2, $3, $4, FALSE)",
-				packID, roleID, stringID, resourceClass,
-			)
-			if pqerr, ok := err.(*pq.Error); ok && pqerr.Code == "23503" {
-				// 23503 is foreign key constraint violation, meaning the pack doesn't exist
-				util.Error(w, http.StatusNotFound)
-				log.WithError(err).Warn("Failed to insert new pack resource, pack probably does not exist")
-				return
-			} else if err != nil {
-				util.Error(w, http.StatusInternalServerError)
-				log.WithError(err).Error("Failed to insert new pack resource")
-				return
+			// validation
+			if !identifierExpression.MatchString(roleID) {
+				return http.StatusBadRequest, fmt.Errorf("failed to validate role id: %v", roleID)
+			}
+			if !identifierExpression.MatchString(stringID) {
+				return http.StatusBadRequest, fmt.Errorf("failed to validate string id: %v", stringID)
 			}
 
-		} else if resourceReady {
+			// determine whether upload is audio or image
+			contentType := r.Header.Get("Content-Type")
+			resourceClass, err := deriveResourceClass(contentType)
+			if err != nil {
+				return http.StatusBadRequest, err
+			}
 
-			// update existing resource to be not ready
-			result, err := tx.ExecContext(
+			// begin a new transcation
+			tx, err := db.BeginTx(r.Context(), nil)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			defer tx.Rollback()
+
+			// check whether resource already exists, and wether is ready state
+			rows, err := tx.QueryContext(
 				r.Context(),
-				"UPDATE packResources SET ready = FALSE WHERE packId = $1 AND roleId = $2 AND stringId = $3 AND class = $4",
+				"SELECT ready FROM packResources WHERE packId = $1 AND roleId = $2 AND stringId = $3 AND class = $4",
 				packID, roleID, stringID, resourceClass,
 			)
 			if err != nil {
-				util.Error(w, http.StatusInternalServerError)
-				log.WithError(err).Error("Failed to mark pack resource as not ready")
-				return
+				return http.StatusInternalServerError, err
+			}
+			defer rows.Close()
+			resourceExists := rows.Next()
+			var resourceReady bool
+			if resourceExists {
+				rows.Scan(&resourceReady)
+			}
+			rows.Close()
+
+			if !resourceExists {
+
+				// insert new resource
+				_, err := tx.ExecContext(
+					r.Context(),
+					"INSERT INTO packResources (packId, roleId, stringID, class, ready) VALUES ($1, $2, $3, $4, FALSE)",
+					packID, roleID, stringID, resourceClass,
+				)
+				if pqerr, ok := err.(*pq.Error); ok && pqerr.Code == "23503" {
+					// 23503 is foreign key constraint violation, meaning the pack doesn't exist
+					return http.StatusNotFound, errors.New("pack not found")
+				} else if err != nil {
+					return http.StatusInternalServerError, err
+				}
+
+			} else if resourceReady {
+
+				// update existing resource to be not ready
+				result, err := tx.ExecContext(
+					r.Context(),
+					"UPDATE packResources SET ready = FALSE WHERE packId = $1 AND roleId = $2 AND stringId = $3 AND class = $4",
+					packID, roleID, stringID, resourceClass,
+				)
+				if err != nil {
+					return http.StatusInternalServerError, err
+				}
+				rowsAffected, _ := result.RowsAffected()
+				if rowsAffected != 1 {
+					return http.StatusInternalServerError, errors.New("failed to mark pack resource as not ready")
+				}
+
+			}
+
+			// commit current transaction and start a new one
+			err = tx.Commit()
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			tx, err = db.BeginTx(r.Context(), nil)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			defer tx.Rollback()
+
+			// indicate resource is ready (not commited yet), goal is to lock the row
+			result, err := tx.ExecContext(
+				r.Context(),
+				"UPDATE packResources SET ready = TRUE WHERE packId = $1 AND roleId = $2 AND stringId = $3 AND class = $4 AND ready = FALSE",
+				packID, roleID, stringID, resourceClass,
+			)
+			if err != nil {
+				return http.StatusInternalServerError, err
 			}
 			rowsAffected, _ := result.RowsAffected()
 			if rowsAffected != 1 {
-				util.Error(w, http.StatusInternalServerError)
-				log.WithFields(log.Fields{
-					"rowsAffected": rowsAffected,
-				}).Error("Failed to mark pack resource as not ready")
-				return
+				return http.StatusInternalServerError, errors.New("failed to mark pack resource as ready")
 			}
 
-		}
+			// upload resource, now that the row is lock
+			key := resourceKey(packID, roleID, stringID, resourceClass)
+			_, err = s3c.PutObject(r.Context(), &s3.PutObjectInput{
+				Bucket:        &bucket,
+				Key:           &key,
+				Body:          r.Body,
+				ContentLength: r.ContentLength,
+				ContentType:   &contentType,
+			}, s3.WithAPIOptions(
+				v4.SwapComputePayloadSHA256ForUnsignedPayloadMiddleware,
+			))
+			if err != nil {
+				return http.StatusInternalServerError, err
+			} else {
+				log.WithFields(log.Fields{
+					"bucket": bucket,
+					"key":    key,
+				}).Info("Uploaded new pack resource")
+			}
 
-		// commit current transaction and start a new one
-		err = tx.Commit()
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to commit pack resource delete")
-			return
-		}
-		tx, err = db.BeginTx(r.Context(), nil)
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to begin postgres transaction")
-			return
-		}
-		defer tx.Rollback()
+			// commit current transaction
+			err = tx.Commit()
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
 
-		// indicate resource is ready (not commited yet), goal is to lock the row
-		result, err := tx.ExecContext(
-			r.Context(),
-			"UPDATE packResources SET ready = TRUE WHERE packId = $1 AND roleId = $2 AND stringId = $3 AND class = $4 AND ready = FALSE",
-			packID, roleID, stringID, resourceClass,
-		)
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed update pack resource to ready state")
-			return
-		}
-		rowsAffected, _ := result.RowsAffected()
-		if rowsAffected != 1 {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithFields(log.Fields{
-				"rowsAffected": rowsAffected,
-			}).Error("Failed update pack resource to ready state")
-			return
-		}
+			return http.StatusOK, nil
 
-		// upload resource, now that the row is lock
-		key := resourceKey(packID, roleID, stringID, resourceClass)
-		_, err = s3c.PutObject(r.Context(), &s3.PutObjectInput{
-			Bucket:        &bucket,
-			Key:           &key,
-			Body:          r.Body,
-			ContentLength: r.ContentLength,
-			ContentType:   &contentType,
-		}, s3.WithAPIOptions(
-			v4.SwapComputePayloadSHA256ForUnsignedPayloadMiddleware,
-		))
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to upload new pack resource")
-			return
-		} else {
-			log.WithFields(log.Fields{
-				"bucket": bucket,
-				"key":    key,
-			}).Info("Uploaded new pack resource")
-		}
-
-		// commit current transaction
-		err = tx.Commit()
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to commit pack upload")
-			return
-		}
-
-		util.OK(w)
-
-	}
+		},
+	)
 }
 
 // DELETE /api/packs/:pack_id
@@ -359,51 +310,43 @@ func UploadPackResource(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 // Deletes a pack and its ascociated resources.
 func DeletePack(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	bucket := viper.GetString("s3_media_bucket")
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	return util.WrapDecoratedHandle(
+		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *log.Entry) (int, error) {
 
-		// get path params
-		packID := ps.ByName("pack_id")
+			// get path params
+			packID := ps.ByName("pack_id")
 
-		// delete pack resources
-		err := deleteRelatedResources(r.Context(), db, s3c, &bucket, &packID, nil, nil)
-		if err != nil {
+			// delete pack resources
+			err := deleteRelatedResources(r.Context(), db, s3c, &bucket, &packID, nil, nil)
 			if err != nil {
-				switch err.(type) {
-				case *noResourcesFoundError:
-					// a pack is allowed to have no resources
-				default:
-					util.Error(w, http.StatusInternalServerError)
-					log.WithError(err).Error("Failed to delete resource in pack")
-					return
+				if err != nil {
+					switch err.(type) {
+					case *noResourcesFoundError:
+						// a pack is allowed to have no resources
+					default:
+						return http.StatusInternalServerError, fmt.Errorf("failed to delete pack resource: %v", err)
+					}
 				}
 			}
-		}
 
-		// delete pack
-		res, err := db.ExecContext(r.Context(), "DELETE FROM packs WHERE id = $1;", packID)
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to delete pack")
-			return
-		}
+			// delete pack
+			res, err := db.ExecContext(r.Context(), "DELETE FROM packs WHERE id = $1;", packID)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
 
-		// check how many rows were affected
-		affected, err := res.RowsAffected()
-		if err != nil {
-			util.Error(w, http.StatusInternalServerError)
-			log.WithError(err).Error("Failed to get rows affected")
-			return
-		} else if affected != 1 {
-			util.Error(w, http.StatusNotFound)
-			log.WithFields(log.Fields{
-				"rowsAffected": affected,
-			}).Warn("Failed to delete pack, it probably doesn't exist")
-			return
-		}
+			// check how many rows were affected
+			affected, err := res.RowsAffected()
+			if err != nil {
+				return http.StatusInternalServerError, err
+			} else if affected != 1 {
+				return http.StatusNotFound, errors.New("pack not found")
+			}
 
-		util.OK(w)
+			return http.StatusOK, nil
 
-	}
+		},
+	)
 }
 
 // DELETE /api/packs/:pack_id/:role_id
@@ -411,32 +354,30 @@ func DeletePack(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 // Deletes all pack resources belonging to a role.
 func DeletePackRole(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	bucket := viper.GetString("s3_media_bucket")
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	return util.WrapDecoratedHandle(
+		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *log.Entry) (int, error) {
 
-		// get path params
-		packID := ps.ByName("pack_id")
-		roleID := ps.ByName("role_id")
+			// get path params
+			packID := ps.ByName("pack_id")
+			roleID := ps.ByName("role_id")
 
-		// delete resources
-		err := deleteRelatedResources(r.Context(), db, s3c, &bucket, &packID, &roleID, nil)
-		if err != nil {
+			// delete resources
+			err := deleteRelatedResources(r.Context(), db, s3c, &bucket, &packID, &roleID, nil)
 			if err != nil {
-				switch err.(type) {
-				case *noResourcesFoundError:
-					util.Error(w, http.StatusNotFound)
-					log.WithError(err).Warn("No resources found to delete in pack role")
-					return
-				default:
-					util.Error(w, http.StatusInternalServerError)
-					log.WithError(err).Error("Failed to delete resource in pack role")
-					return
+				if err != nil {
+					switch err.(type) {
+					case *noResourcesFoundError:
+						return http.StatusNotFound, errors.New("no resources found in pack role")
+					default:
+						return http.StatusInternalServerError, fmt.Errorf("failed to delete pack role resource: %v", err)
+					}
 				}
 			}
-		}
 
-		util.OK(w)
+			return http.StatusOK, nil
 
-	}
+		},
+	)
 }
 
 // PUT /api/packs/:pack_id/:role_id/:string_id
@@ -444,33 +385,31 @@ func DeletePackRole(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 // Deletes all pack resources belonging to a string.
 func DeletePackString(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	bucket := viper.GetString("s3_media_bucket")
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	return util.WrapDecoratedHandle(
+		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *log.Entry) (int, error) {
 
-		// get path params
-		packID := ps.ByName("pack_id")
-		roleID := ps.ByName("role_id")
-		stringID := ps.ByName("string_id")
+			// get path params
+			packID := ps.ByName("pack_id")
+			roleID := ps.ByName("role_id")
+			stringID := ps.ByName("string_id")
 
-		// delete resources
-		err := deleteRelatedResources(r.Context(), db, s3c, &bucket, &packID, &roleID, &stringID)
-		if err != nil {
+			// delete resources
+			err := deleteRelatedResources(r.Context(), db, s3c, &bucket, &packID, &roleID, &stringID)
 			if err != nil {
-				switch err.(type) {
-				case *noResourcesFoundError:
-					util.Error(w, http.StatusNotFound)
-					log.WithError(err).Warn("No resources found to delete in pack string")
-					return
-				default:
-					util.Error(w, http.StatusInternalServerError)
-					log.WithError(err).Error("Failed to delete resource in pack string")
-					return
+				if err != nil {
+					switch err.(type) {
+					case *noResourcesFoundError:
+						return http.StatusNotFound, errors.New("no resources found in pack string")
+					default:
+						return http.StatusInternalServerError, fmt.Errorf("failed to delete pack string resource: %v", err)
+					}
 				}
 			}
-		}
 
-		util.OK(w)
+			return http.StatusOK, nil
 
-	}
+		},
+	)
 }
 
 // HELPERS
