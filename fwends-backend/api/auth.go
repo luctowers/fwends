@@ -14,8 +14,8 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/julienschmidt/httprouter"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 	"google.golang.org/api/oauth2/v1"
 	"google.golang.org/api/option"
 )
@@ -23,7 +23,7 @@ import (
 // GET /api/auth/config
 //
 // Get authentication configuration.
-func AuthConfig() httprouter.Handle {
+func AuthConfig(logger *zap.Logger) httprouter.Handle {
 
 	type authServiceInfo struct {
 		GoogleClientId string `json:"google,omitempty"`
@@ -46,11 +46,12 @@ func AuthConfig() httprouter.Handle {
 	// convert the response to bytes prior to request as it is static
 	bytes, err := json.Marshal(resbody)
 	if err != nil {
-		log.WithError(err).Fatal("Failed to encode auth info")
+		logger.With(zap.Error(err)).Fatal("Failed to encode auth info")
 	}
 
 	return util.WrapDecoratedHandle(
-		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
+		logger,
+		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write(bytes)
 			return http.StatusOK, nil
@@ -62,12 +63,13 @@ func AuthConfig() httprouter.Handle {
 // GET /api/auth
 //
 // Checks whether the current session is authenticated.
-func AuthVerify(rdb *redis.Client) httprouter.Handle {
+func AuthVerify(logger *zap.Logger, rdb *redis.Client) httprouter.Handle {
 
 	if !viper.GetBool("auth_enable") {
 
 		return util.WrapDecoratedHandle(
-			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
+			logger,
+			func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
 				return http.StatusMisdirectedRequest, errors.New("authentication is not enabled")
 			},
 		)
@@ -78,7 +80,8 @@ func AuthVerify(rdb *redis.Client) httprouter.Handle {
 		sessionRedisPrefix := viper.GetString("session_redis_prefix")
 
 		return util.WrapDecoratedHandle(
-			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
+			logger,
+			func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
 
 				// determine authentication status via redis
 				var authenticated bool
@@ -115,11 +118,12 @@ func AuthVerify(rdb *redis.Client) httprouter.Handle {
 // POST /api/auth
 //
 // Receives a token from the user, aunticates it and creates a session.
-func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
+func Authenticate(logger *zap.Logger, db *sql.DB, rdb *redis.Client) httprouter.Handle {
 	if !viper.GetBool("auth_enable") {
 
 		return util.WrapDecoratedHandle(
-			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
+			logger,
+			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
 				return http.StatusMisdirectedRequest, errors.New("authentication is not enabled")
 			},
 		)
@@ -133,7 +137,7 @@ func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 
 		services, err := openAuthServices(context.Background())
 		if err != nil {
-			log.WithError(err).Fatal("Failed to open auth services")
+			logger.With(zap.Error(err)).Fatal("Failed to open auth services")
 		}
 
 		sessionIDSize := viper.GetInt("session_id_size")
@@ -142,7 +146,8 @@ func Authenticate(db *sql.DB, rdb *redis.Client) httprouter.Handle {
 		sessionRedisPrefix := viper.GetString("session_redis_prefix")
 
 		return util.WrapDecoratedHandle(
-			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
+			logger,
+			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
 
 				// decode request body
 				decoder := json.NewDecoder(r.Body)
