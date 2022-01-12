@@ -6,21 +6,21 @@ import (
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 // A decorated version of httprouter.Handle that takes a custom logger and returns a status and optional error.
-type DecoratedHandle func(http.ResponseWriter, *http.Request, httprouter.Params, *log.Entry) (int, error)
+type DecoratedHandle func(http.ResponseWriter, *http.Request, httprouter.Params, *zap.Logger) (int, error)
 
 // Wraps a decorated handle to a regular handle.
 // Custom logging logic and other error checking is injected here too.
-func WrapDecoratedHandle(fn DecoratedHandle) httprouter.Handle {
+func WrapDecoratedHandle(logger *zap.Logger, fn DecoratedHandle) httprouter.Handle {
 
 	type responseBody struct {
 		Status  int    `json:"status"`
 		Message string `json:"message"`
-		Error   error  `json:"error,omitempty"`
+		Error   string `json:"error,omitempty"`
 	}
 
 	httpDebugEnabled := viper.GetBool("http_debug")
@@ -31,11 +31,11 @@ func WrapDecoratedHandle(fn DecoratedHandle) httprouter.Handle {
 		id := rand.Int63()
 
 		// create a logger with useful contextuals
-		logger := log.WithFields(log.Fields{
-			"request_id": id,
-			"method":     r.Method,
-			"url":        r.URL,
-		}).WithField("request_id", id)
+		logger := logger.With(
+			zap.Int64("request_id", id),
+			zap.String("method", r.Method),
+			zap.String("url", r.URL.String()),
+		)
 		logger.Debug("Request received")
 
 		// wrap the response writer to later check whether header and status were written
@@ -46,12 +46,12 @@ func WrapDecoratedHandle(fn DecoratedHandle) httprouter.Handle {
 
 		// call the decorated handler
 		status, err := fn(&wrap, r, ps, logger)
-		logger = logger.WithField("status", status)
+		logger = logger.With(zap.Int("status", status))
 		logger.Debug("Request processed")
 
 		// log any returned error, with log level corresponding to status
 		if err != nil {
-			logger := logger.WithError(err)
+			logger := logger.With(zap.Error(err))
 			switch {
 			case status >= 400 && status <= 499:
 				logger.Warn("Error returned by http handler")
@@ -75,10 +75,10 @@ func WrapDecoratedHandle(fn DecoratedHandle) httprouter.Handle {
 
 			// log any status discrepency
 			if status != wrap.StatusWritten {
-				logger.WithFields(log.Fields{
-					"status":        status,
-					"statusWritten": wrap.StatusWritten,
-				}).Error("Status returned from handler does not match written status")
+				logger.With(
+					zap.Int("status", status),
+					zap.Int("statusWritten", wrap.StatusWritten),
+				).Error("Status returned from handler does not match written status")
 			}
 
 		} else { // status, header and body are yet to be written
@@ -95,8 +95,8 @@ func WrapDecoratedHandle(fn DecoratedHandle) httprouter.Handle {
 				Status:  status,
 				Message: http.StatusText(status),
 			}
-			if httpDebugEnabled {
-				resbody.Error = err
+			if httpDebugEnabled && err != nil {
+				resbody.Error = err.Error()
 			}
 			json.NewEncoder(w).Encode(resbody)
 
@@ -109,7 +109,7 @@ type responseWriterWrapper struct {
 	Writer        http.ResponseWriter
 	HeaderWritten bool
 	StatusWritten int
-	Logger        *log.Entry
+	Logger        *zap.Logger
 }
 
 func (w *responseWriterWrapper) Header() http.Header {
@@ -128,10 +128,10 @@ func (w *responseWriterWrapper) WriteHeader(status int) {
 	if !w.HeaderWritten {
 		w.StatusWritten = status
 	} else {
-		w.Logger.WithFields(log.Fields{
-			"status":        status,
-			"statusWritten": w.StatusWritten,
-		}).Error("Unable to write http status, it has already been written")
+		w.Logger.With(
+			zap.Int("status", status),
+			zap.Int("statusWritten", w.StatusWritten),
+		).Error("Unable to write http status, it has already been written")
 	}
 	w.HeaderWritten = true
 	w.Writer.WriteHeader(status)

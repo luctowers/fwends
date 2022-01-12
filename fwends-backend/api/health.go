@@ -12,13 +12,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-redis/redis/v8"
 	"github.com/julienschmidt/httprouter"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // GET /api/health
 //
 // Gets the health of the services that the backend depends on.
-func HealthCheck(db *sql.DB, rdb *redis.Client, s3c *s3.Client) httprouter.Handle {
+func HealthCheck(logger *zap.Logger, db *sql.DB, rdb *redis.Client, s3c *s3.Client) httprouter.Handle {
 	type serviceInfo struct {
 		Postgres bool `json:"postgres"`
 		Redis    bool `json:"redis"`
@@ -28,7 +28,8 @@ func HealthCheck(db *sql.DB, rdb *redis.Client, s3c *s3.Client) httprouter.Handl
 		Services serviceInfo `json:"services"`
 	}
 	return util.WrapDecoratedHandle(
-		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
+		logger,
+		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
 
 			// context that times out after 3 seconds, or when finish is called
 			ctx, finish := context.WithTimeout(context.Background(), time.Duration(3*time.Second))
@@ -48,7 +49,7 @@ func HealthCheck(db *sql.DB, rdb *redis.Client, s3c *s3.Client) httprouter.Handl
 				defer wg.Done()
 				err := db.PingContext(ctx)
 				if err != nil {
-					logger.WithError(err).Error("Failed to ping postgres")
+					logger.With(zap.Error(err)).Error("Failed to ping postgres")
 				}
 				cdb <- err == nil
 			}()
@@ -60,7 +61,7 @@ func HealthCheck(db *sql.DB, rdb *redis.Client, s3c *s3.Client) httprouter.Handl
 				cmd := rdb.Ping(ctx)
 				_, err := cmd.Result()
 				if err != nil {
-					logger.WithError(err).Error("Failed to ping redis")
+					logger.With(zap.Error(err)).Error("Failed to ping redis")
 				}
 				crdb <- err == nil
 			}()
@@ -71,7 +72,7 @@ func HealthCheck(db *sql.DB, rdb *redis.Client, s3c *s3.Client) httprouter.Handl
 				defer wg.Done()
 				_, err := s3c.ListBuckets(ctx, &s3.ListBucketsInput{})
 				if err != nil {
-					logger.WithError(err).Error("Failed to list s3 buckets")
+					logger.With(zap.Error(err)).Error("Failed to list s3 buckets")
 				}
 				cs3c <- err == nil
 			}()

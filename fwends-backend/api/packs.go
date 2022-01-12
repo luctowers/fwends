@@ -13,8 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/julienschmidt/httprouter"
 	"github.com/lib/pq"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 )
 
@@ -34,7 +34,7 @@ curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role/string
 // POST /api/packs/
 //
 // Creates an new pack with a title and returns the id.
-func CreatePack(db *sql.DB, snowflake *util.SnowflakeGenerator) httprouter.Handle {
+func CreatePack(logger *zap.Logger, db *sql.DB, snowflake *util.SnowflakeGenerator) httprouter.Handle {
 	type requestBody struct {
 		Title string `json:"title"`
 	}
@@ -43,7 +43,8 @@ func CreatePack(db *sql.DB, snowflake *util.SnowflakeGenerator) httprouter.Handl
 		ID int64 `json:"id,string"`
 	}
 	return util.WrapDecoratedHandle(
-		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *log.Entry) (int, error) {
+		logger,
+		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
 
 			// decode request body
 			decoder := json.NewDecoder(r.Body)
@@ -82,12 +83,13 @@ func CreatePack(db *sql.DB, snowflake *util.SnowflakeGenerator) httprouter.Handl
 // GET /api/packs/:pack_id
 //
 // Gets a pack's title.
-func GetPack(db *sql.DB) httprouter.Handle {
+func GetPack(logger *zap.Logger, db *sql.DB) httprouter.Handle {
 	type responseBody struct {
 		Title string `json:"title"`
 	}
 	return util.WrapDecoratedHandle(
-		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *log.Entry) (int, error) {
+		logger,
+		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
 
 			// get path params
 			id := ps.ByName("pack_id")
@@ -121,12 +123,13 @@ func GetPack(db *sql.DB) httprouter.Handle {
 // PUT /api/packs/:pack_id
 //
 // Updates a pack's title.
-func UpdatePack(db *sql.DB) httprouter.Handle {
+func UpdatePack(logger *zap.Logger, db *sql.DB) httprouter.Handle {
 	type requestBody struct {
 		Title string `json:"title"`
 	}
 	return util.WrapDecoratedHandle(
-		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *log.Entry) (int, error) {
+		logger,
+		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
 
 			// get path params
 			id := ps.ByName("pack_id")
@@ -165,11 +168,12 @@ func UpdatePack(db *sql.DB) httprouter.Handle {
 // PUT /api/packs/:pack_id/:role_id/:string_id
 //
 // Adds or replaces a image or audio pack resource.
-func UploadPackResource(db *sql.DB, s3c *s3.Client) httprouter.Handle {
+func UploadPackResource(logger *zap.Logger, db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	bucket := viper.GetString("s3_media_bucket")
 	identifierExpression := regexp.MustCompile(`^[a-z0-9_]{1,63}$`)
 	return util.WrapDecoratedHandle(
-		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *log.Entry) (int, error) {
+		logger,
+		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
 
 			// get path params
 			packID := ps.ByName("pack_id")
@@ -287,10 +291,10 @@ func UploadPackResource(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 			if err != nil {
 				return http.StatusInternalServerError, err
 			} else {
-				log.WithFields(log.Fields{
-					"bucket": bucket,
-					"key":    key,
-				}).Info("Uploaded new pack resource")
+				logger.With(
+					zap.String("bucket", bucket),
+					zap.String("key", key),
+				).Info("Uploaded new pack resource")
 			}
 
 			// commit current transaction
@@ -308,10 +312,11 @@ func UploadPackResource(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 // DELETE /api/packs/:pack_id
 //
 // Deletes a pack and its ascociated resources.
-func DeletePack(db *sql.DB, s3c *s3.Client) httprouter.Handle {
+func DeletePack(logger *zap.Logger, db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	bucket := viper.GetString("s3_media_bucket")
 	return util.WrapDecoratedHandle(
-		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *log.Entry) (int, error) {
+		logger,
+		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
 
 			// get path params
 			packID := ps.ByName("pack_id")
@@ -352,10 +357,11 @@ func DeletePack(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 // DELETE /api/packs/:pack_id/:role_id
 //
 // Deletes all pack resources belonging to a role.
-func DeletePackRole(db *sql.DB, s3c *s3.Client) httprouter.Handle {
+func DeletePackRole(logger *zap.Logger, db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	bucket := viper.GetString("s3_media_bucket")
 	return util.WrapDecoratedHandle(
-		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *log.Entry) (int, error) {
+		logger,
+		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
 
 			// get path params
 			packID := ps.ByName("pack_id")
@@ -383,10 +389,11 @@ func DeletePackRole(db *sql.DB, s3c *s3.Client) httprouter.Handle {
 // PUT /api/packs/:pack_id/:role_id/:string_id
 //
 // Deletes all pack resources belonging to a string.
-func DeletePackString(db *sql.DB, s3c *s3.Client) httprouter.Handle {
+func DeletePackString(logger *zap.Logger, db *sql.DB, s3c *s3.Client) httprouter.Handle {
 	bucket := viper.GetString("s3_media_bucket")
 	return util.WrapDecoratedHandle(
-		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *log.Entry) (int, error) {
+		logger,
+		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
 
 			// get path params
 			packID := ps.ByName("pack_id")

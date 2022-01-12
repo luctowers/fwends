@@ -9,7 +9,6 @@ require (
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/lib/pq v1.10.4
-	github.com/sirupsen/logrus v1.8.1
 	google.golang.org/api v0.63.0
 )
 
@@ -39,6 +38,9 @@ require (
 	github.com/spf13/viper v1.10.1 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
+	go.uber.org/multierr v1.7.0 // indirect
+	go.uber.org/zap v1.20.0 // indirect
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20211210111614-af8b64212486 // indirect
