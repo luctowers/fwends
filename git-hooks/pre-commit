@@ -20,14 +20,17 @@ cd $ROOT/fwends-backend
 GO_FILES=$(git diff --cached --name-only --diff-filter=ACM . | grep ".go$")
 for FILE in $GO_FILES
 do
-    go vet "$ROOT/$FILE"
+    # dirname is used because a go file can use declarations from siblings
+    # TODO: this causes double linting of some packages
+    # TODO: this could lint files that aren't yet staged :/
+    go vet $(dirname "$ROOT/$FILE")
     if [[ "$?" == 0 ]]; then
         echo "go vet passed: $FILE"
     else
         echo "go vet failed: $FILE"
         PASS=false
     fi
-    staticcheck "$ROOT/$FILE"
+    staticcheck $(dirname "$ROOT/$FILE")
     if [[ "$?" == 0 ]]; then
         echo "go staticcheck passed: $FILE"
     else
