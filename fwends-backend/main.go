@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
 	"github.com/spf13/viper"
@@ -17,15 +18,24 @@ import (
 
 func main() {
 
-	var cfg config.Config
+	// load config
+	cfg := &config.Config{}
 	v := viper.New()
 	config.BindEnv(v)
 	config.SetDefaults(v)
-	err := v.UnmarshalExact(&cfg)
+	err := v.UnmarshalExact(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	// validate config
+	validate := validator.New()
+	err = validate.Struct(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// create zap logger
 	logger, err := services.NewLogger(cfg.LogDebug)
 	if err != nil {
 		// this is the final usage of the default go logger
@@ -55,17 +65,17 @@ func main() {
 
 	// register http routes
 	router := httprouter.New()
-	router.GET("/api/health", api.HealthCheck(&cfg, logger, db, rdb, s3c))
-	router.POST("/api/auth", api.Authenticate(&cfg, logger, db, rdb))
-	router.GET("/api/auth", api.AuthVerify(&cfg, logger, rdb))
-	router.GET("/api/auth/config", api.AuthConfig(&cfg, logger))
-	router.POST("/api/packs/", api.CreatePack(&cfg, logger, db, snowflake))
-	router.GET("/api/packs/:pack_id", api.GetPack(&cfg, logger, db))
-	router.PUT("/api/packs/:pack_id", api.UpdatePack(&cfg, logger, db))
-	router.DELETE("/api/packs/:pack_id", api.DeletePack(&cfg, logger, db, s3c))
-	router.DELETE("/api/packs/:pack_id/:role_id", api.DeletePackRole(&cfg, logger, db, s3c))
-	router.DELETE("/api/packs/:pack_id/:role_id/:string_id", api.DeletePackString(&cfg, logger, db, s3c))
-	router.PUT("/api/packs/:pack_id/:role_id/:string_id", api.UploadPackResource(&cfg, logger, db, s3c))
+	router.GET("/api/health", api.HealthCheck(cfg, logger, db, rdb, s3c))
+	router.POST("/api/auth", api.Authenticate(cfg, logger, db, rdb))
+	router.GET("/api/auth", api.AuthVerify(cfg, logger, rdb))
+	router.GET("/api/auth/config", api.AuthConfig(cfg, logger))
+	router.POST("/api/packs/", api.CreatePack(cfg, logger, db, snowflake))
+	router.GET("/api/packs/:pack_id", api.GetPack(cfg, logger, db))
+	router.PUT("/api/packs/:pack_id", api.UpdatePack(cfg, logger, db))
+	router.DELETE("/api/packs/:pack_id", api.DeletePack(cfg, logger, db, s3c))
+	router.DELETE("/api/packs/:pack_id/:role_id", api.DeletePackRole(cfg, logger, db, s3c))
+	router.DELETE("/api/packs/:pack_id/:role_id/:string_id", api.DeletePackString(cfg, logger, db, s3c))
+	router.PUT("/api/packs/:pack_id/:role_id/:string_id", api.UploadPackResource(cfg, logger, db, s3c))
 
 	// start the server
 	logger.With(zap.Int64("podIndex", podIndex)).Info("starting http server")
