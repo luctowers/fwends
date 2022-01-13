@@ -292,7 +292,7 @@ func UploadPackResource(cfg *config.Config, logger *zap.Logger, db *sql.DB, s3c 
 			} else {
 				logger.With(
 					zap.String("key", key),
-				).Info("Uploaded new pack resource")
+				).Info("uploaded new pack resource")
 			}
 
 			// commit current transaction

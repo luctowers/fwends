@@ -36,7 +36,7 @@ func WrapDecoratedHandle(cfg *config.Config, logger *zap.Logger, fn DecoratedHan
 			zap.String("method", r.Method),
 			zap.String("url", r.URL.String()),
 		)
-		logger.Debug("Request received")
+		logger.Debug("request received")
 
 		// wrap the response writer to later check whether header and status were written
 		wrap := responseWriterWrapper{
@@ -47,18 +47,18 @@ func WrapDecoratedHandle(cfg *config.Config, logger *zap.Logger, fn DecoratedHan
 		// call the decorated handler
 		status, err := fn(&wrap, r, ps, logger)
 		logger = logger.With(zap.Int("status", status))
-		logger.Debug("Request processed")
+		logger.Debug("request processed")
 
 		// log any returned error, with log level corresponding to status
 		if err != nil {
 			logger := logger.With(zap.Error(err))
 			switch {
 			case status >= 400 && status <= 499:
-				logger.Warn("Error returned by http handler")
+				logger.Warn("error returned by http handler")
 			case status >= 500 && status <= 599:
-				logger.Error("Error returned by http handler")
+				logger.Error("error returned by http handler")
 			default:
-				logger.Info("Error returned by http handler")
+				logger.Info("error returned by http handler")
 			}
 		}
 
@@ -66,7 +66,7 @@ func WrapDecoratedHandle(cfg *config.Config, logger *zap.Logger, fn DecoratedHan
 		// because there is no point in writing any response now
 		select {
 		case <-r.Context().Done():
-			logger.Warn("Request cancelled or interrupted")
+			logger.Warn("request cancelled or interrupted")
 			return
 		default:
 		}
@@ -78,7 +78,7 @@ func WrapDecoratedHandle(cfg *config.Config, logger *zap.Logger, fn DecoratedHan
 				logger.With(
 					zap.Int("status", status),
 					zap.Int("statusWritten", wrap.StatusWritten),
-				).Error("Status returned from handler does not match written status")
+				).Error("status returned from handler does not match written status")
 			}
 
 		} else { // status, header and body are yet to be written
