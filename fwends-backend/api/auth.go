@@ -46,7 +46,7 @@ func AuthConfig(cfg *config.Config, logger *zap.Logger) httprouter.Handle {
 	// convert the response to bytes prior to request as it is static
 	bytes, err := json.Marshal(resbody)
 	if err != nil {
-		logger.With(zap.Error(err)).Fatal("Failed to encode auth info")
+		logger.With(zap.Error(err)).Fatal("failed to encode auth info")
 	}
 
 	return util.WrapDecoratedHandle(
@@ -134,7 +134,7 @@ func Authenticate(cfg *config.Config, logger *zap.Logger, db *sql.DB, rdb *redis
 
 		services, err := newAuthServices(context.Background(), cfg)
 		if err != nil {
-			logger.With(zap.Error(err)).Fatal("Failed to open auth services")
+			logger.With(zap.Error(err)).Fatal("failed to open auth services")
 		}
 
 		return util.WrapDecoratedHandle(

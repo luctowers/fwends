@@ -35,22 +35,22 @@ func main() {
 	// open service connections
 	db, err := services.NewPostgres(&cfg.Postgres)
 	if err != nil {
-		logger.With(zap.Error(err)).Fatal("Failed to create postgres client")
+		logger.With(zap.Error(err)).Fatal("failed to create postgres client")
 	}
 	rdb := services.NewRedis(&cfg.Redis)
 	s3c, err := services.NewS3(&cfg.S3)
 	if err != nil {
-		logger.With(zap.Error(err)).Fatal("Failed to create s3 client")
+		logger.With(zap.Error(err)).Fatal("failed to create s3 client")
 	}
 
 	// initialize id generator
 	podIndex, err := util.PodIndex()
 	if err != nil {
-		logger.With(zap.Error(err)).Fatal("Failed to determine pod index")
+		logger.With(zap.Error(err)).Fatal("failed to determine pod index")
 	}
 	snowflake, err := util.NewSnowflakeGenerator(podIndex)
 	if err != nil {
-		logger.With(zap.Error(err)).Fatal("Failed to create snowflake id generator")
+		logger.With(zap.Error(err)).Fatal("failed to create snowflake id generator")
 	}
 
 	// register http routes
@@ -68,7 +68,7 @@ func main() {
 	router.PUT("/api/packs/:pack_id/:role_id/:string_id", api.UploadPackResource(&cfg, logger, db, s3c))
 
 	// start the server
-	logger.With(zap.Int64("podIndex", podIndex)).Info("Starting http server")
+	logger.With(zap.Int64("podIndex", podIndex)).Info("starting http server")
 	addr := fmt.Sprintf(":%d", cfg.HTTPPort)
 	err = http.ListenAndServe(addr, router)
 	if err != nil {

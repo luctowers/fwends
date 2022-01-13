@@ -50,7 +50,7 @@ func HealthCheck(cfg *config.Config, logger *zap.Logger, db *sql.DB, rdb *redis.
 				defer wg.Done()
 				err := db.PingContext(ctx)
 				if err != nil {
-					logger.With(zap.Error(err)).Error("Failed to ping postgres")
+					logger.With(zap.Error(err)).Error("failed to ping postgres")
 				}
 				cdb <- err == nil
 			}()
@@ -62,7 +62,7 @@ func HealthCheck(cfg *config.Config, logger *zap.Logger, db *sql.DB, rdb *redis.
 				cmd := rdb.Ping(ctx)
 				_, err := cmd.Result()
 				if err != nil {
-					logger.With(zap.Error(err)).Error("Failed to ping redis")
+					logger.With(zap.Error(err)).Error("failed to ping redis")
 				}
 				crdb <- err == nil
 			}()
@@ -73,7 +73,7 @@ func HealthCheck(cfg *config.Config, logger *zap.Logger, db *sql.DB, rdb *redis.
 				defer wg.Done()
 				_, err := s3c.ListBuckets(ctx, &s3.ListBucketsInput{})
 				if err != nil {
-					logger.With(zap.Error(err)).Error("Failed to list s3 buckets")
+					logger.With(zap.Error(err)).Error("failed to list s3 buckets")
 				}
 				cs3c <- err == nil
 			}()
