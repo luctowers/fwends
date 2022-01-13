@@ -2,11 +2,11 @@ package util
 
 import (
 	"encoding/json"
+	"fwends-backend/config"
 	"math/rand"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -15,7 +15,7 @@ type DecoratedHandle func(http.ResponseWriter, *http.Request, httprouter.Params,
 
 // Wraps a decorated handle to a regular handle.
 // Custom logging logic and other error checking is injected here too.
-func WrapDecoratedHandle(logger *zap.Logger, fn DecoratedHandle) httprouter.Handle {
+func WrapDecoratedHandle(cfg *config.Config, logger *zap.Logger, fn DecoratedHandle) httprouter.Handle {
 
 	type responseBody struct {
 		Status  int    `json:"status"`
@@ -23,7 +23,7 @@ func WrapDecoratedHandle(logger *zap.Logger, fn DecoratedHandle) httprouter.Hand
 		Error   string `json:"error,omitempty"`
 	}
 
-	httpDebugEnabled := viper.GetBool("http_debug")
+	httpDebugEnabled := cfg.HTTPDebug
 
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
