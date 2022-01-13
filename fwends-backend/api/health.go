@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fwends-backend/config"
 	"fwends-backend/util"
 	"net/http"
 	"sync"
@@ -18,7 +19,7 @@ import (
 // GET /api/health
 //
 // Gets the health of the services that the backend depends on.
-func HealthCheck(logger *zap.Logger, db *sql.DB, rdb *redis.Client, s3c *s3.Client) httprouter.Handle {
+func HealthCheck(cfg *config.Config, logger *zap.Logger, db *sql.DB, rdb *redis.Client, s3c *s3.Client) httprouter.Handle {
 	type serviceInfo struct {
 		Postgres bool `json:"postgres"`
 		Redis    bool `json:"redis"`
@@ -28,7 +29,7 @@ func HealthCheck(logger *zap.Logger, db *sql.DB, rdb *redis.Client, s3c *s3.Clie
 		Services serviceInfo `json:"services"`
 	}
 	return util.WrapDecoratedHandle(
-		logger,
+		cfg, logger,
 		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
 
 			// context that times out after 3 seconds, or when finish is called

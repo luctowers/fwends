@@ -8,13 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"fwends-backend/config"
 	"fwends-backend/util"
 	"io"
 	"net/http"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/julienschmidt/httprouter"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/api/oauth2/v1"
 	"google.golang.org/api/option"
@@ -23,10 +23,10 @@ import (
 // GET /api/auth/config
 //
 // Get authentication configuration.
-func AuthConfig(logger *zap.Logger) httprouter.Handle {
+func AuthConfig(cfg *config.Config, logger *zap.Logger) httprouter.Handle {
 
 	type authServiceInfo struct {
-		GoogleClientId string `json:"google,omitempty"`
+		GoogleClientID string `json:"google,omitempty"`
 		// TODO: add more oauth services
 	}
 
@@ -37,9 +37,9 @@ func AuthConfig(logger *zap.Logger) httprouter.Handle {
 
 	// create auth info
 	resbody := responseBody{
-		Enable: viper.GetBool("auth_enable"),
+		Enable: cfg.Auth.Enable,
 		Services: authServiceInfo{
-			GoogleClientId: viper.GetString("google_client_id"),
+			GoogleClientID: cfg.Auth.GoogleClientID,
 		},
 	}
 
@@ -50,7 +50,7 @@ func AuthConfig(logger *zap.Logger) httprouter.Handle {
 	}
 
 	return util.WrapDecoratedHandle(
-		logger,
+		cfg, logger,
 		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write(bytes)
@@ -63,12 +63,12 @@ func AuthConfig(logger *zap.Logger) httprouter.Handle {
 // GET /api/auth
 //
 // Checks whether the current session is authenticated.
-func AuthVerify(logger *zap.Logger, rdb *redis.Client) httprouter.Handle {
+func AuthVerify(cfg *config.Config, logger *zap.Logger, rdb *redis.Client) httprouter.Handle {
 
-	if !viper.GetBool("auth_enable") {
+	if !cfg.Auth.Enable {
 
 		return util.WrapDecoratedHandle(
-			logger,
+			cfg, logger,
 			func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
 				return http.StatusMisdirectedRequest, errors.New("authentication is not enabled")
 			},
@@ -76,20 +76,17 @@ func AuthVerify(logger *zap.Logger, rdb *redis.Client) httprouter.Handle {
 
 	} else {
 
-		sessionCookie := viper.GetString("session_cookie")
-		sessionRedisPrefix := viper.GetString("session_redis_prefix")
-
 		return util.WrapDecoratedHandle(
-			logger,
+			cfg, logger,
 			func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
 
 				// determine authentication status via redis
 				var authenticated bool
-				session, err := r.Cookie(sessionCookie)
+				session, err := r.Cookie(cfg.Auth.SessionCookie)
 				if err != nil { // cookie not found
 					authenticated = false
 				} else {
-					key := sessionRedisPrefix + session.Value
+					key := cfg.Auth.SessionsRedisPrefix + session.Value
 					exists, err := rdb.Exists(r.Context(), key).Result()
 					if err != nil {
 						return http.StatusInternalServerError, err
@@ -118,11 +115,11 @@ func AuthVerify(logger *zap.Logger, rdb *redis.Client) httprouter.Handle {
 // POST /api/auth
 //
 // Receives a token from the user, aunticates it and creates a session.
-func Authenticate(logger *zap.Logger, db *sql.DB, rdb *redis.Client) httprouter.Handle {
-	if !viper.GetBool("auth_enable") {
+func Authenticate(cfg *config.Config, logger *zap.Logger, db *sql.DB, rdb *redis.Client) httprouter.Handle {
+	if !cfg.Auth.Enable {
 
 		return util.WrapDecoratedHandle(
-			logger,
+			cfg, logger,
 			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
 				return http.StatusMisdirectedRequest, errors.New("authentication is not enabled")
 			},
@@ -135,18 +132,13 @@ func Authenticate(logger *zap.Logger, db *sql.DB, rdb *redis.Client) httprouter.
 			Service string `json:"service"`
 		}
 
-		services, err := openAuthServices(context.Background())
+		services, err := newAuthServices(context.Background(), cfg)
 		if err != nil {
 			logger.With(zap.Error(err)).Fatal("Failed to open auth services")
 		}
 
-		sessionIDSize := viper.GetInt("session_id_size")
-		sessionTTL := viper.GetDuration("session_ttl")
-		sessionCookie := viper.GetString("session_cookie")
-		sessionRedisPrefix := viper.GetString("session_redis_prefix")
-
 		return util.WrapDecoratedHandle(
-			logger,
+			cfg, logger,
 			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
 
 				// decode request body
@@ -181,16 +173,16 @@ func Authenticate(logger *zap.Logger, db *sql.DB, rdb *redis.Client) httprouter.
 				}
 
 				// create session
-				id := make([]byte, sessionIDSize)
+				id := make([]byte, cfg.Auth.SessionIDSize)
 				n, err := io.ReadFull(rand.Reader, id[:])
 				if err != nil {
 					return http.StatusInternalServerError, err
-				} else if n != sessionIDSize {
+				} else if n != cfg.Auth.SessionIDSize {
 					return http.StatusInternalServerError, errors.New("session id generation failed")
 				}
 				idB64 := base64.StdEncoding.EncodeToString(id[:])
-				key := sessionRedisPrefix + idB64
-				val, err := rdb.SetNX(r.Context(), key, true, sessionTTL).Result()
+				key := cfg.Auth.SessionsRedisPrefix + idB64
+				val, err := rdb.SetNX(r.Context(), key, true, cfg.Auth.SessionTTL).Result()
 				if err != nil {
 					return http.StatusInternalServerError, err
 				} else if !val {
@@ -199,9 +191,9 @@ func Authenticate(logger *zap.Logger, db *sql.DB, rdb *redis.Client) httprouter.
 
 				// everything succeeded
 				sessionCookie := http.Cookie{
-					Name:     sessionCookie,
+					Name:     cfg.Auth.SessionCookie,
 					Value:    idB64,
-					MaxAge:   int(sessionTTL.Seconds()),
+					MaxAge:   int(cfg.Auth.SessionTTL.Seconds()),
 					Secure:   true,
 					HttpOnly: true,
 				}
@@ -221,9 +213,9 @@ type authServices struct {
 	google *oauth2.Service
 }
 
-func openAuthServices(ctx context.Context) (*authServices, error) {
+func newAuthServices(ctx context.Context, cfg *config.Config) (*authServices, error) {
 	services := &authServices{}
-	if viper.IsSet("google_client_id") {
+	if cfg.Auth.GoogleClientID != "" {
 		google, err := oauth2.NewService(ctx, option.WithHTTPClient(&http.Client{}))
 		if err != nil {
 			return nil, err
