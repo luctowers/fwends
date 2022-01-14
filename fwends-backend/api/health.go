@@ -71,11 +71,21 @@ func HealthCheck(cfg *config.Config, logger *zap.Logger, db *sql.DB, rdb *redis.
 			cs3c := make(chan bool)
 			go func() {
 				defer wg.Done()
-				_, err := s3c.ListBuckets(ctx, &s3.ListBucketsInput{})
+				// verify whether media bucket exists
+				out, err := s3c.ListBuckets(ctx, &s3.ListBucketsInput{})
 				if err != nil {
 					logger.With(zap.Error(err)).Error("failed to list s3 buckets")
+					cs3c <- false
+					return
 				}
-				cs3c <- err == nil
+				for _, b := range out.Buckets {
+					if *b.Name == cfg.S3.MediaBucket {
+						cs3c <- true
+						return
+					}
+				}
+				logger.Error("media bucket does exist")
+				cs3c <- false
 			}()
 
 			var resbody responseBody
