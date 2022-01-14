@@ -564,10 +564,6 @@ func deriveResourceClass(contentType string) (string, error) {
 	// image content types
 	case "image/webp":
 		fallthrough
-	case "image/bmp":
-		fallthrough
-	case "image/gif":
-		fallthrough
 	case "image/jpeg":
 		fallthrough
 	case "image/png":
@@ -580,13 +576,7 @@ func deriveResourceClass(contentType string) (string, error) {
 		fallthrough
 	case "audio/mpeg":
 		fallthrough
-	case "audio/ogg":
-		fallthrough
-	case "audio/opus":
-		fallthrough
 	case "audio/wav":
-		fallthrough
-	case "audio/webm":
 		fallthrough
 	case "audio/flac":
 		return "audio", nil
