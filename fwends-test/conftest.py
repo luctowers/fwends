@@ -17,8 +17,13 @@ def pytest_addoption(parser):
 	)
 	parser.addoption(
 		"--backend",
-		default="http://localhost:8080",
+		default="http://localhost:8080/api",
 		help="The backend endpoint to use"
+	)
+	parser.addoption(
+		"--media",
+		default="http://localhost:8080/media",
+		help="The media endpoint to use"
 	)
 	parser.addoption(
 		"--kube-proxy",
@@ -60,15 +65,24 @@ def pytest_runtest_setup(item):
 @pytest.fixture
 def backend(request):
 	backend_val = request.config.getoption("--backend")
-	if not backend.healthy:
-		health_check_enable = request.config.getoption("--health-check-enable")
+	health_check_enable = request.config.getoption("--health-check-enable")
+	if health_check_enable and not backend.healthy:
+		if backend.error:
+			raise AssertionError("backend is unhealthy")
 		health_check_timeout = request.config.getoption("--health-check-timeout")
 		health_check_delay = request.config.getoption("--health-check-delay")
-		if health_check_enable:
+		try:
 			wait_for_health_check(backend_val, health_check_timeout, health_check_delay)
+			backend.healthy = True
+		except AssertionError:
+			backend.error = True
 	return backend_val
 backend.healthy = False
+backend.error = False
 
+@pytest.fixture
+def media(request):
+	return request.config.getoption("--media")
 
 @pytest.fixture
 def namespace(request):

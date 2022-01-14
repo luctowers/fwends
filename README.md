@@ -17,3 +17,8 @@
 - learn how to run integration and failure tests [fwends-test/README.md](./fwends-test/README.md)
 - set custom kubernetes configmaps and secrets [kubernetes/custom/README.md](./kubernetes/custom/README.md)
 - read useful commands reference [documentation/commands.md](./documentation/commands.md)
+
+## Attributions
+
+- **FWENDS Source Code** © 2021 Lucas Towers [MIT LICENSE](./LICENSE)
+- **Test Resources** [fwends-test/resource-attributions.txt](./fwends-test/resource-attributions.txt)

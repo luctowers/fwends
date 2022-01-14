@@ -16,7 +16,7 @@ def assert_health_check(backend, assert_data):
 	"""Assert health check response from backend is exactly assert_data."""
 
 	response = requests.get(
-		backend + "/api/health/"
+		backend + "/health/"
 	)
 	assert response.status_code == 200
 	response_data = response.json()

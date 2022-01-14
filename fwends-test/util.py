@@ -6,11 +6,11 @@ def wait_for_health_check(backend, timeout, delay):
 	while True:
 		try:
 			response = requests.get(
-				backend + "/api/health"
+				backend + "/health"
 			)
 			assert response.status_code == 200
 			response_data = response.json()
-			#if all services are healthy
+			# if all services are healthy
 			if all(response_data["services"].values()):
 				wait_for_health_check.healthy = True
 				break
@@ -22,7 +22,7 @@ def wait_for_health_check(backend, timeout, delay):
 			if timeout != 0:
 				elapsed = time.time() - start
 				if elapsed + delay >= timeout:
-					raise err
+					raise AssertionError("health check timed out") from err
 			time.sleep(delay)
 
 
