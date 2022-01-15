@@ -84,8 +84,13 @@ func CreatePack(cfg *config.Config, logger *zap.Logger, db *sql.DB, snowflake *u
 //
 // Gets a pack's title.
 func GetPack(cfg *config.Config, logger *zap.Logger, db *sql.DB) httprouter.Handle {
+	type packString struct {
+		HasAudio bool `json:"audio"`
+		HasImage bool `json:"image"`
+	}
 	type responseBody struct {
-		Title string `json:"title"`
+		Title     string                           `json:"title"`
+		Resources map[string]map[string]packString `json:"resources"`
 	}
 	return util.WrapDecoratedHandle(
 		cfg, logger,
@@ -94,8 +99,10 @@ func GetPack(cfg *config.Config, logger *zap.Logger, db *sql.DB) httprouter.Hand
 			// get path params
 			id := ps.ByName("pack_id")
 
-			// query postgres for title
-			rows, err := db.QueryContext(r.Context(), "SELECT title FROM packs WHERE id = $1;", id)
+			var resbody responseBody
+
+			// query postgres for pack title
+			rows, err := db.QueryContext(r.Context(), "SELECT title FROM packs WHERE id = $1", id)
 			if err != nil {
 				return http.StatusInternalServerError, err
 			}
@@ -104,13 +111,46 @@ func GetPack(cfg *config.Config, logger *zap.Logger, db *sql.DB) httprouter.Hand
 				// no row was returned
 				return http.StatusNotFound, errors.New("pack not found")
 			}
-
-			// respond to request
-			var resbody responseBody
 			err = rows.Scan(&resbody.Title)
 			if err != nil {
 				return http.StatusInternalServerError, err
 			}
+			rows.Close()
+
+			// query postgres for pack resources
+			rows, err = db.QueryContext(r.Context(), "SELECT roleId, stringId, class FROM packResources WHERE packId = $1 AND ready = TRUE", id)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			defer rows.Close()
+			resbody.Resources = make(map[string]map[string]packString)
+			for rows.Next() {
+				var roleID string
+				var stringID string
+				var resourceClass string
+				rows.Scan(&roleID, &stringID, &resourceClass)
+				roleMap, rolePresent := resbody.Resources[roleID]
+				if !rolePresent {
+					roleMap = make(map[string]packString)
+					resbody.Resources[roleID] = roleMap
+				}
+				str, strPresent := roleMap[stringID]
+				if !strPresent {
+					str = packString{}
+				}
+				switch resourceClass {
+				case "audio":
+					str.HasAudio = true
+				case "image":
+					str.HasImage = true
+				default:
+					logger.Warn("unknown pack resource class found in database", zap.String("resourceClass", resourceClass))
+				}
+				roleMap[stringID] = str
+			}
+			rows.Close()
+
+			// respond to request
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(resbody)
 
@@ -145,7 +185,7 @@ func UpdatePack(cfg *config.Config, logger *zap.Logger, db *sql.DB) httprouter.H
 			}
 
 			// update pack title
-			res, err := db.ExecContext(r.Context(), "UPDATE packs SET title = $2 WHERE id = $1;", id, reqbody.Title)
+			res, err := db.ExecContext(r.Context(), "UPDATE packs SET title = $2 WHERE id = $1", id, reqbody.Title)
 			if err != nil {
 				return http.StatusInternalServerError, err
 			}
