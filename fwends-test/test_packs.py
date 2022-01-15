@@ -66,8 +66,9 @@ def test_pack_resource_crud(backend, media):
 		upload_resource(pack_api+"/bird/eagle", file, "image/png")
 	with open("./resources/bird-eagle.mp3", "rb") as file:
 		upload_resource(pack_api+"/bird/eagle", file, "audio/mpeg")
-	with open("./resources/bird-robin.jpg", "rb") as file:
-		upload_resource(pack_api+"/bird/robin", file, "image/jpeg")
+	# omit robin image
+	# with open("./resources/bird-robin.jpg", "rb") as file:
+	# 	upload_resource(pack_api+"/bird/robin", file, "image/jpeg")
 	with open("./resources/bird-robin.mp3", "rb") as file:
 		upload_resource(pack_api+"/bird/robin", file, "audio/mpeg")
 	with open("./resources/mammal-cat.jpg", "rb") as file:
@@ -80,8 +81,9 @@ def test_pack_resource_crud(backend, media):
 		upload_resource(pack_api+"/mammal/dog", file, "audio/aac")
 	with open("./resources/mammal-tiger.svg", "rb") as file:
 		upload_resource(pack_api+"/mammal/tiger", file, "image/svg+xml")
-	with open("./resources/mammal-tiger.wav", "rb") as file:
-		upload_resource(pack_api+"/mammal/tiger", file, "audio/wav")
+	# omit tiger sound
+	# with open("./resources/mammal-tiger.wav", "rb") as file:
+	# 	upload_resource(pack_api+"/mammal/tiger", file, "audio/wav")
 
 	# verify resources have been uploaded
 	with open("./resources/bird-duck.jpg", "rb") as file:
@@ -92,8 +94,9 @@ def test_pack_resource_crud(backend, media):
 		verify_resource(pack_media+"/bird/eagle/image", file, "image/png")
 	with open("./resources/bird-eagle.mp3", "rb") as file:
 		verify_resource(pack_media+"/bird/eagle/audio", file, "audio/mpeg")
-	with open("./resources/bird-robin.jpg", "rb") as file:
-		verify_resource(pack_media+"/bird/robin/image", file, "image/jpeg")
+	# omit robin image
+	# with open("./resources/bird-robin.jpg", "rb") as file:
+	# 	verify_resource(pack_media+"/bird/robin/image", file, "image/jpeg")
 	with open("./resources/bird-robin.mp3", "rb") as file:
 		verify_resource(pack_media+"/bird/robin/audio", file, "audio/mpeg")
 	with open("./resources/mammal-cat.jpg", "rb") as file:
@@ -106,15 +109,48 @@ def test_pack_resource_crud(backend, media):
 		verify_resource(pack_media+"/mammal/dog/audio", file, "audio/aac")
 	with open("./resources/mammal-tiger.svg", "rb") as file:
 		verify_resource(pack_media+"/mammal/tiger/image", file, "image/svg+xml")
-	with open("./resources/mammal-tiger.wav", "rb") as file:
-		verify_resource(pack_media+"/mammal/tiger/audio", file, "audio/wav")
+	# omit tiger sound
+	# with open("./resources/mammal-tiger.wav", "rb") as file:
+	# 	verify_resource(pack_media+"/mammal/tiger/audio", file, "audio/wav")
 
-	# delete tiger string
-	response = requests.delete(pack_api+"/mammal/tiger")
+	# verify with get pack api
+	response = requests.get(pack_api)
+	assert response.status_code == 200
+	assert response.json()["resources"] == {
+		"bird": {
+			"duck": {"image": True, "audio": True},
+			"eagle": {"image": True, "audio": True},
+			"robin": {"image": False, "audio": True},
+		},
+		"mammal": {
+			"cat": {"image": True, "audio": True},
+			"dog": {"image": True, "audio": True},
+			"tiger": {"image": True, "audio": False}
+		}
+	}
+
+	# delete cat string
+	response = requests.delete(pack_api+"/mammal/cat")
 	assert response.status_code == 200
 	# make sure tiger resources have been deleted
-	verify_resource_deleted(pack_media+"/mammal/tiger/image")
-	verify_resource_deleted(pack_media+"/mammal/tiger/audio")
+	verify_resource_deleted(pack_media+"/mammal/cat/image")
+	verify_resource_deleted(pack_media+"/mammal/cat/audio")
+
+	# verify with get pack api
+	response = requests.get(pack_api)
+	assert response.status_code == 200
+	assert response.json()["resources"] == {
+		"bird": {
+			"duck": {"image": True, "audio": True},
+			"eagle": {"image": True, "audio": True},
+			"robin": {"image": False, "audio": True},
+		},
+		"mammal": {
+			# cat deleted
+			"dog": {"image": True, "audio": True},
+			"tiger": {"image": True, "audio": False}
+		}
+	}
 
 	# delete bird role
 	response = requests.delete(pack_api+"/bird")
@@ -124,29 +160,42 @@ def test_pack_resource_crud(backend, media):
 	verify_resource_deleted(pack_media+"/bird/duck/audio")
 	verify_resource_deleted(pack_media+"/bird/eagle/image")
 	verify_resource_deleted(pack_media+"/bird/eagle/audio")
-	verify_resource_deleted(pack_media+"/bird/robin/image")
+	# omit robin image
+	# verify_resource_deleted(pack_media+"/bird/robin/image")
 	verify_resource_deleted(pack_media+"/bird/robin/audio")
 
 	# verify others mammals are still alive
-	with open("./resources/mammal-cat.jpg", "rb") as file:
-		verify_resource(pack_media+"/mammal/cat/image", file, "image/jpeg")
-	with open("./resources/mammal-cat.flac", "rb") as file:
-		verify_resource(pack_media+"/mammal/cat/audio", file, "audio/flac")
+	with open("./resources/mammal-tiger.svg", "rb") as file:
+		verify_resource(pack_media+"/mammal/tiger/image", file, "image/svg+xml")
+	# omit tiger sound
+	# with open("./resources/mammal-tiger.wav", "rb") as file:
+	# 	verify_resource(pack_media+"/mammal/tiger/audio", file, "audio/wav")
 	with open("./resources/mammal-dog.webp", "rb") as file:
 		verify_resource(pack_media+"/mammal/dog/image", file, "image/webp")
 	with open("./resources/mammal-dog.m4a", "rb") as file:
 		verify_resource(pack_media+"/mammal/dog/audio", file, "audio/aac")
 
-	# replace cat with eagle to test updating resource
+	# replace dog with eagle to test updating resource
 	with open("./resources/bird-eagle.png", "rb") as file:
-		upload_resource(pack_api+"/mammal/cat", file, "image/png")
+		upload_resource(pack_api+"/mammal/dog", file, "image/png")
 	with open("./resources/bird-eagle.mp3", "rb") as file:
-		upload_resource(pack_api+"/mammal/cat", file, "audio/mpeg")
+		upload_resource(pack_api+"/mammal/dog", file, "audio/mpeg")
 	# verify resource has been updated
 	with open("./resources/bird-eagle.png", "rb") as file:
-		verify_resource(pack_media+"/mammal/cat/image", file, "image/png")
+		verify_resource(pack_media+"/mammal/dog/image", file, "image/png")
 	with open("./resources/bird-eagle.mp3", "rb") as file:
-		verify_resource(pack_media+"/mammal/cat/audio", file, "audio/mpeg")
+		verify_resource(pack_media+"/mammal/dog/audio", file, "audio/mpeg")
+
+	# verify with get pack api
+	response = requests.get(pack_api)
+	assert response.status_code == 200
+	assert response.json()["resources"] == {
+		# birds deleted
+		"mammal": {
+			"dog": {"image": True, "audio": True},
+			"tiger": {"image": True, "audio": False}
+		}
+	}
 
 	# delete pack
 	response = requests.delete(pack_api)
@@ -154,8 +203,9 @@ def test_pack_resource_crud(backend, media):
 	# make sure remaining pack resources have been deleted
 	verify_resource_deleted(pack_media+"/mammal/dog/image")
 	verify_resource_deleted(pack_media+"/mammal/dog/audio")
-	verify_resource_deleted(pack_media+"/mammal/cat/image")
-	verify_resource_deleted(pack_media+"/mammal/cat/audio")
+	verify_resource_deleted(pack_media+"/mammal/tiger/image")
+	# omit tiger sound
+	# verify_resource_deleted(pack_media+"/mammal/tiger/audio")
 
 
 # HELPERS
