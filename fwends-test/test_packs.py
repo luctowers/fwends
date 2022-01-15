@@ -25,6 +25,17 @@ def test_pack_crud(backend):
 	assert "title" in response_data
 	assert response_data["title"] == pack["title"]
 
+	# verify with list pack api
+	response = requests.get(backend+"/packs/")
+	assert response.status_code == 200
+	response_element = next((x for x in response.json() if x['id']==pack_id),None)
+	assert response_element == {
+		"id": pack_id,
+		"title": pack["title"],
+		"roleCount": 0,
+		"stringCount": 0
+	}
+
 	# update pack
 	updated_pack = {"title":"Updated Title!!"}
 	response = requests.put(backend+"/packs/"+pack_id, json=updated_pack)
@@ -36,6 +47,17 @@ def test_pack_crud(backend):
 	response_data = response.json()
 	assert "title" in response_data
 	assert response_data["title"] == updated_pack["title"]
+
+	# verify with list pack api
+	response = requests.get(backend+"/packs/")
+	assert response.status_code == 200
+	response_element = next((x for x in response.json() if x['id']==pack_id),None)
+	assert response_element == {
+		"id": pack_id,
+		"title": updated_pack["title"],
+		"roleCount": 0,
+		"stringCount": 0
+	}
 
 	# delete pack
 	response = requests.delete(backend+"/packs/"+pack_id)
@@ -129,6 +151,17 @@ def test_pack_resource_crud(backend, media):
 		}
 	}
 
+	# verify with list pack api
+	response = requests.get(backend+"/packs/")
+	assert response.status_code == 200
+	response_element = next((x for x in response.json() if x['id']==pack_id),None)
+	assert response_element == {
+		"id": pack_id,
+		"title": pack["title"],
+		"roleCount": 2, # mammal and bird
+		"stringCount": 4 # tiger and robin, not counted as resources were omitted
+	}
+
 	# delete cat string
 	response = requests.delete(pack_api+"/mammal/cat")
 	assert response.status_code == 200
@@ -150,6 +183,17 @@ def test_pack_resource_crud(backend, media):
 			"dog": {"image": True, "audio": True},
 			"tiger": {"image": True, "audio": False}
 		}
+	}
+
+	# verify with list pack api
+	response = requests.get(backend+"/packs/")
+	assert response.status_code == 200
+	response_element = next((x for x in response.json() if x['id']==pack_id),None)
+	assert response_element == {
+		"id": pack_id,
+		"title": pack["title"],
+		"roleCount": 2, # mammal and bird
+		"stringCount": 3 # cat now deleted
 	}
 
 	# delete bird role
@@ -195,6 +239,17 @@ def test_pack_resource_crud(backend, media):
 			"dog": {"image": True, "audio": True},
 			"tiger": {"image": True, "audio": False}
 		}
+	}
+
+	# verify with list pack api
+	response = requests.get(backend+"/packs/")
+	assert response.status_code == 200
+	response_element = next((x for x in response.json() if x['id']==pack_id),None)
+	assert response_element == {
+		"id": pack_id,
+		"title": pack["title"],
+		"roleCount": 1, # only mammal is left
+		"stringCount": 1 # only dog is left
 	}
 
 	# delete pack
