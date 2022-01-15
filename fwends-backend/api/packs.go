@@ -101,6 +101,8 @@ func GetPack(cfg *config.Config, logger *zap.Logger, db *sql.DB) httprouter.Hand
 
 			var resbody responseBody
 
+			// TODO: maybe a transaction should be used here, probably not needed though
+
 			// query postgres for pack title
 			rows, err := db.QueryContext(r.Context(), "SELECT title FROM packs WHERE id = $1", id)
 			if err != nil {
