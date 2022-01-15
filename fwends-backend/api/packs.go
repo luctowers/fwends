@@ -21,6 +21,7 @@ import (
 /*
 Example curl commands:
 
+curl -X GET http://localhost:8080/api/packs/
 curl -X POST http://localhost:8080/api/packs/ -d '{"title":"Test Pack"}'
 curl -X GET http://localhost:8080/api/packs/6882582496895041536
 curl -X PUT http://localhost:8080/api/packs/6882582496895041536 -d '{"title":"Updated Test Pack"}'
@@ -30,6 +31,64 @@ curl -X DELETE http://localhost:8080/api/packs/6882582496895041536
 curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role
 curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role/string
 */
+
+// GET /api/packs/
+//
+// Lists all existing packs.
+func ListPacks(cfg *config.Config, logger *zap.Logger, db *sql.DB) httprouter.Handle {
+	type packResponse struct {
+		ID          int64  `json:"id,string"`
+		Title       string `json:"title"`
+		RoleCount   int    `json:"roleCount"`
+		StringCount int    `json:"stringCount"`
+	}
+	return util.WrapDecoratedHandle(
+		cfg, logger,
+		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
+
+			packs := make([]packResponse, 0)
+
+			rows, err := db.QueryContext(r.Context(), `
+				SELECT
+					packs.id,
+					packs.title,
+					COUNT(DISTINCT audios.roleId) as roleCount,
+					COUNT(DISTINCT audios.stringId) as stringCount
+				FROM packs
+					LEFT OUTER JOIN packResources as images ON
+						packs.id = images.packId AND
+						images.ready = TRUE AND images.class = 'image'
+					LEFT OUTER JOIN packResources as audios ON
+						images.packId = audios.packId AND
+						images.stringId = audios.stringId AND
+						images.roleId = audios.roleId AND
+						audios.ready = TRUE AND
+						audios.class = 'audio'
+				GROUP BY packs.id
+			`)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var pack packResponse
+				err := rows.Scan(&pack.ID, &pack.Title, &pack.RoleCount, &pack.StringCount)
+				if err != nil {
+					return http.StatusInternalServerError, err
+				}
+				packs = append(packs, pack)
+			}
+			rows.Close()
+
+			// respond to reqquest
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(packs)
+
+			return http.StatusOK, nil
+
+		},
+	)
+}
 
 // POST /api/packs/
 //
@@ -130,7 +189,10 @@ func GetPack(cfg *config.Config, logger *zap.Logger, db *sql.DB) httprouter.Hand
 				var roleID string
 				var stringID string
 				var resourceClass string
-				rows.Scan(&roleID, &stringID, &resourceClass)
+				err := rows.Scan(&roleID, &stringID, &resourceClass)
+				if err != nil {
+					return http.StatusInternalServerError, err
+				}
 				roleMap, rolePresent := resbody.Resources[roleID]
 				if !rolePresent {
 					roleMap = make(map[string]packString)
@@ -256,7 +318,10 @@ func UploadPackResource(cfg *config.Config, logger *zap.Logger, db *sql.DB, s3c 
 			resourceExists := rows.Next()
 			var resourceReady bool
 			if resourceExists {
-				rows.Scan(&resourceReady)
+				err := rows.Scan(&resourceReady)
+				if err != nil {
+					return http.StatusInternalServerError, err
+				}
 			}
 			rows.Close()
 
