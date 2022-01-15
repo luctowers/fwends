@@ -69,6 +69,7 @@ func main() {
 	router.POST("/api/auth", api.Authenticate(cfg, logger, db, rdb))
 	router.GET("/api/auth", api.AuthVerify(cfg, logger, rdb))
 	router.GET("/api/auth/config", api.AuthConfig(cfg, logger))
+	router.GET("/api/packs/", api.ListPacks(cfg, logger, db))
 	router.POST("/api/packs/", api.CreatePack(cfg, logger, db, snowflake))
 	router.GET("/api/packs/:pack_id", api.GetPack(cfg, logger, db))
 	router.PUT("/api/packs/:pack_id", api.UpdatePack(cfg, logger, db))
