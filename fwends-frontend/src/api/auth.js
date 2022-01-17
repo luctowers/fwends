@@ -1,20 +1,15 @@
 import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import { lazyPromise, dynamicScriptLoad } from "./util";
+import { jsonRequest } from "./requests";
+import { backend } from "./endpoints";
 
 let authenticatedGlobal = false;
 const eventTarget = new EventTarget();
 const sessionPresenceCookie = "fwends_session_presence";
 
 if (Cookies.get(sessionPresenceCookie) === "true") {
-	fetch("/api/auth")
-		.then(response => {
-			if (response.ok) {
-				return response.json();
-			} else {
-				throw new Error("Failed to verify session");
-			}
-		})
+	jsonRequest(backend + "/auth")
 		.then(status => {
 			if (!authenticatedGlobal && status) {
 				authenticatedGlobal = true;
@@ -24,14 +19,7 @@ if (Cookies.get(sessionPresenceCookie) === "true") {
 		.catch(console.error);
 }
 
-const authConfig = fetch("/api/auth/config")
-	.then(response => {
-		if (response.ok) {
-			return response.json();
-		} else {
-			throw new Error("Failed to load auth config");
-		}
-	});
+const authConfig = jsonRequest(backend + "/auth/config");
 
 authConfig
 	.then(config => {
@@ -63,7 +51,7 @@ const googleAuthClient = lazyPromise(() => {
 });
 
 function handleGoogleCredentialResponse(response) {
-	fetch("/api/auth", {
+	jsonRequest(backend + "/auth", {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json"
@@ -73,14 +61,10 @@ function handleGoogleCredentialResponse(response) {
 			service: "google"
 		})
 	})
-		.then(response => {
-			if (response.ok) {
-				Cookies.set(sessionPresenceCookie, "true");
-				authenticatedGlobal = true;
-				eventTarget.dispatchEvent(new Event("update"));
-			} else {
-				throw new Error("Failed to authenticate with server");
-			}
+		.then(() => {
+			Cookies.set(sessionPresenceCookie, "true");
+			authenticatedGlobal = true;
+			eventTarget.dispatchEvent(new Event("update"));
 		})
 		.catch(console.error);
 }

@@ -25,8 +25,8 @@ export default function AuthPrompt() {
 
 	return (
 		<div className={
-			"p-6 flex items-center justify-center gap-4 fixed bottom-0 left-0 right-0 transition-transform ease-in-out duration-500 " +
-      (show && !authenticated ? "translate-y-0" : "translate-y-3/4")
+			"p-4 flex items-center justify-center gap-4 fixed bottom-0 left-0 right-0 transition-transform ease-in-out duration-500 border-t border-neutral bg-white " +
+      (show && !authenticated ? "translate-y-0" : "translate-y-full")
 		}>
 			{loaded && <GoogleSigninButton />}
 			<button onClick={hide} className="h-10 w-10 button-frost">
