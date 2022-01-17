@@ -9,6 +9,7 @@
     @apply border-neutral;
     @apply text-dark;
     @apply fill-dark;
+    @apply bg-white;
     @apply transition-colors;
     @apply flex;
     @apply items-center;
