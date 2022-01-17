@@ -40,4 +40,5 @@ portForward:
   - resourceType: service
     resourceName: fwends-nginx
     port: http
+    address: 0.0.0.0
     localPort: 8080
