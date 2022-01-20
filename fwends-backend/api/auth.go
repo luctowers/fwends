@@ -9,13 +9,11 @@ import (
 	"errors"
 	"fmt"
 	"fwends-backend/config"
-	"fwends-backend/util"
+	"fwends-backend/handler"
 	"io"
 	"net/http"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/julienschmidt/httprouter"
-	"go.uber.org/zap"
 	"google.golang.org/api/oauth2/v1"
 	"google.golang.org/api/option"
 )
@@ -23,188 +21,158 @@ import (
 // GET /api/auth/config
 //
 // Get authentication configuration.
-func AuthConfig(cfg *config.Config, logger *zap.Logger) httprouter.Handle {
-
-	type authServiceInfo struct {
-		GoogleClientID string `json:"google,omitempty"`
-		// TODO: add more oauth services
+func AuthConfig(cfg *config.Config) handler.Handler {
+	// contruct response
+	var resbody struct {
+		Enable   bool `json:"enable"`
+		Services struct {
+			GoogleClientID string `json:"google,omitempty"`
+		} `json:"services"`
 	}
-
-	type responseBody struct {
-		Enable   bool            `json:"enable"`
-		Services authServiceInfo `json:"services"`
-	}
-
-	// create auth info
-	resbody := responseBody{
-		Enable: cfg.Auth.Enable,
-		Services: authServiceInfo{
-			GoogleClientID: cfg.Auth.GoogleClientID,
-		},
-	}
+	resbody.Enable = cfg.Auth.Enable
+	resbody.Services.GoogleClientID = cfg.Auth.GoogleClientID
 
 	// convert the response to bytes prior to request as it is static
 	bytes, err := json.Marshal(resbody)
 	if err != nil {
-		logger.With(zap.Error(err)).Fatal("failed to encode auth info")
+		panic(err)
 	}
 
-	return util.WrapDecoratedHandle(
-		cfg, logger,
-		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(bytes)
-			return http.StatusOK, nil
-		},
-	)
-
+	return handler.NewStaticHandler(bytes, "application/json", http.StatusOK)
 }
 
 // GET /api/auth
 //
 // Checks whether the current session is authenticated.
-func AuthVerify(cfg *config.Config, logger *zap.Logger, rdb *redis.Client) httprouter.Handle {
-
+func AuthVerify(cfg *config.Config, rdb *redis.Client) handler.Handler {
 	if !cfg.Auth.Enable {
-
-		return util.WrapDecoratedHandle(
-			cfg, logger,
-			func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
-				return http.StatusMisdirectedRequest, errors.New("authentication is not enabled")
-			},
+		return handler.NewErrorHandler(
+			http.StatusMisdirectedRequest, errors.New("authentication is not enabled"),
 		)
-
 	} else {
+		return &authVerifyHandler{cfg, rdb}
+	}
+}
 
-		return util.WrapDecoratedHandle(
-			cfg, logger,
-			func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
+type authVerifyHandler struct {
+	cfg *config.Config
+	rdb *redis.Client
+}
 
-				// determine authentication status via redis
-				var authenticated bool
-				session, err := r.Cookie(cfg.Auth.SessionCookie)
-				if err != nil { // cookie not found
-					authenticated = false
-				} else {
-					key := cfg.Auth.SessionsRedisPrefix + session.Value
-					exists, err := rdb.Exists(r.Context(), key).Result()
-					if err != nil {
-						return http.StatusInternalServerError, err
-					} else {
-						authenticated = exists == 1
-					}
-				}
-
-				// respond
-				w.Header().Set("Content-Type", "application/json")
-				if authenticated {
-					w.Write([]byte("true"))
-				} else {
-					w.Write([]byte("false"))
-				}
-
-				return http.StatusOK, nil
-
-			},
-		)
-
+func (h *authVerifyHandler) Handle(i handler.Input) (int, error) {
+	// determine authentication status via redis
+	var authenticated bool
+	session, err := i.Request.Cookie(h.cfg.Auth.SessionCookie)
+	if err != nil { // cookie not found
+		authenticated = false
+	} else {
+		key := h.cfg.Auth.SessionsRedisPrefix + session.Value
+		exists, err := h.rdb.Exists(i.Request.Context(), key).Result()
+		if err != nil {
+			return http.StatusInternalServerError, err
+		} else {
+			authenticated = exists == 1
+		}
 	}
 
+	// respond with a boolean value
+	i.Response.Header().Set("Content-Type", "application/json")
+	if authenticated {
+		i.Response.Write([]byte("true"))
+	} else {
+		i.Response.Write([]byte("false"))
+	}
+
+	return http.StatusOK, nil
 }
 
 // POST /api/auth
 //
 // Receives a token from the user, aunticates it and creates a session.
-func Authenticate(cfg *config.Config, logger *zap.Logger, db *sql.DB, rdb *redis.Client) httprouter.Handle {
+func Authenticate(cfg *config.Config, db *sql.DB, rdb *redis.Client) handler.Handler {
 	if !cfg.Auth.Enable {
-
-		return util.WrapDecoratedHandle(
-			cfg, logger,
-			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
-				return http.StatusMisdirectedRequest, errors.New("authentication is not enabled")
-			},
+		return handler.NewErrorHandler(
+			http.StatusMisdirectedRequest, errors.New("authentication is not enabled"),
 		)
-
 	} else {
-
-		type requestBody struct {
-			Token   string `json:"token"`
-			Service string `json:"service"`
-		}
-
-		services, err := newAuthServices(context.Background(), cfg)
+		svc, err := newAuthServices(context.Background(), cfg)
 		if err != nil {
-			logger.With(zap.Error(err)).Fatal("failed to open auth services")
+			panic(err)
 		}
-
-		return util.WrapDecoratedHandle(
-			cfg, logger,
-			func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
-
-				// decode request body
-				decoder := json.NewDecoder(r.Body)
-				var reqbody requestBody
-				err := decoder.Decode(&reqbody)
-				if err != nil {
-					return http.StatusBadRequest, fmt.Errorf("failed to decode request body: %v", err)
-				}
-
-				// get verified email from token
-				var email string
-				switch reqbody.Service {
-				case "google":
-					email, err = getEmailFromGoogleToken(reqbody.Token, services.google)
-					if err != nil {
-						return http.StatusBadRequest, err
-					}
-				default:
-					return http.StatusBadRequest, fmt.Errorf("unrecognized auth service: %v", reqbody.Service)
-				}
-
-				// check whether email is admin
-				rows, err := db.QueryContext(r.Context(), "SELECT 1 FROM admins WHERE email = $1", email)
-				if err != nil {
-					return http.StatusInternalServerError, err
-				}
-				defer rows.Close()
-				if !rows.Next() {
-					// no row was returned, so the email is not admin
-					return http.StatusUnauthorized, errors.New("unauthorized authentication attempt")
-				}
-
-				// create session
-				id := make([]byte, cfg.Auth.SessionIDSize)
-				n, err := io.ReadFull(rand.Reader, id[:])
-				if err != nil {
-					return http.StatusInternalServerError, err
-				} else if n != cfg.Auth.SessionIDSize {
-					return http.StatusInternalServerError, errors.New("session id generation failed")
-				}
-				idB64 := base64.StdEncoding.EncodeToString(id[:])
-				key := cfg.Auth.SessionsRedisPrefix + idB64
-				val, err := rdb.SetNX(r.Context(), key, true, cfg.Auth.SessionTTL).Result()
-				if err != nil {
-					return http.StatusInternalServerError, err
-				} else if !val {
-					return http.StatusInternalServerError, errors.New("session id collision")
-				}
-
-				// everything succeeded
-				sessionCookie := http.Cookie{
-					Name:     cfg.Auth.SessionCookie,
-					Value:    idB64,
-					MaxAge:   int(cfg.Auth.SessionTTL.Seconds()),
-					Secure:   true,
-					HttpOnly: true,
-				}
-				http.SetCookie(w, &sessionCookie)
-
-				return http.StatusOK, nil
-
-			},
-		)
-
+		return &authenticateHandler{cfg, db, rdb, svc}
 	}
+}
+
+type authenticateHandler struct {
+	cfg *config.Config
+	db  *sql.DB
+	rdb *redis.Client
+	svc *authServices
+}
+
+func (h *authenticateHandler) Handle(i handler.Input) (int, error) {
+	// decode request body
+	decoder := json.NewDecoder(i.Request.Body)
+	var reqbody struct {
+		Token   string `json:"token"`
+		Service string `json:"service"`
+	}
+	err := decoder.Decode(&reqbody)
+	if err != nil {
+		return http.StatusBadRequest, fmt.Errorf("failed to decode request body: %v", err)
+	}
+
+	// get verified email from token
+	var email string
+	switch reqbody.Service {
+	case "google":
+		email, err = getEmailFromGoogleToken(reqbody.Token, h.svc.google)
+		if err != nil {
+			return http.StatusBadRequest, err
+		}
+	default:
+		return http.StatusBadRequest, fmt.Errorf("unrecognized auth service: %v", reqbody.Service)
+	}
+
+	// check whether email is admin
+	rows, err := h.db.QueryContext(i.Request.Context(), "SELECT 1 FROM admins WHERE email = $1", email)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		// no row was returned, so the email is not admin
+		return http.StatusUnauthorized, errors.New("unauthorized authentication attempt")
+	}
+
+	// create session
+	id := make([]byte, h.cfg.Auth.SessionIDSize)
+	n, err := io.ReadFull(rand.Reader, id[:])
+	if err != nil {
+		return http.StatusInternalServerError, err
+	} else if n != h.cfg.Auth.SessionIDSize {
+		return http.StatusInternalServerError, errors.New("session id generation failed")
+	}
+	idB64 := base64.StdEncoding.EncodeToString(id[:])
+	key := h.cfg.Auth.SessionsRedisPrefix + idB64
+	val, err := h.rdb.SetNX(i.Request.Context(), key, true, h.cfg.Auth.SessionTTL).Result()
+	if err != nil {
+		return http.StatusInternalServerError, err
+	} else if !val {
+		return http.StatusInternalServerError, errors.New("session id collision")
+	}
+
+	// everything succeeded
+	sessionCookie := http.Cookie{
+		Name:     h.cfg.Auth.SessionCookie,
+		Value:    idB64,
+		MaxAge:   int(h.cfg.Auth.SessionTTL.Seconds()),
+		Secure:   true,
+		HttpOnly: true,
+	}
+	http.SetCookie(i.Response, &sessionCookie)
+
+	return http.StatusOK, nil
 }
 
 // HELPERS
