@@ -217,50 +217,51 @@ func (h *CreatePackHandler) Handle(i handler.Input) (int, error) {
 // 	)
 // }
 
-// // PUT /api/packs/:pack_id
-// //
-// // Updates a pack's title.
-// func UpdatePack(cfg *config.Config, logger *zap.Logger, db *sql.DB) httprouter.Handle {
-// 	type requestBody struct {
-// 		Title string `json:"title"`
-// 	}
-// 	return util.WrapDecoratedHandle(
-// 		cfg, logger,
-// 		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
+// PUT /api/packs/:pack_id
+//
+// Updates a pack's title.
+func UpdatePack(db *sql.DB) handler.Handler {
+	return &UpdatePackHandler{db}
+}
 
-// 			// get path params
-// 			id := ps.ByName("pack_id")
+type UpdatePackHandler struct {
+	db *sql.DB
+}
 
-// 			// decode request body
-// 			decoder := json.NewDecoder(r.Body)
-// 			var reqbody requestBody
-// 			err := decoder.Decode(&reqbody)
-// 			if err != nil {
-// 				return http.StatusBadRequest, fmt.Errorf("failed to decode resonse body: %v", err)
-// 			} else if len(reqbody.Title) == 0 {
-// 				return http.StatusBadRequest, errors.New("empty pack title is not allowed")
-// 			}
+func (h *UpdatePackHandler) Handle(i handler.Input) (int, error) {
+	packID := i.Params.ByName("pack_id")
 
-// 			// update pack title
-// 			res, err := db.ExecContext(r.Context(), "UPDATE packs SET title = $2 WHERE id = $1", id, reqbody.Title)
-// 			if err != nil {
-// 				return http.StatusInternalServerError, err
-// 			}
+	// decode request body
+	decoder := json.NewDecoder(i.Request.Body)
+	var reqbody struct {
+		Title string `json:"title"`
+	}
+	err := decoder.Decode(&reqbody)
+	if err != nil {
+		return http.StatusBadRequest, fmt.Errorf("failed to decode resonse body: %v", err)
+	} else if len(reqbody.Title) == 0 {
+		return http.StatusBadRequest, errors.New("empty pack title is not allowed")
+	}
 
-// 			// check whether anything was updated
-// 			affected, err := res.RowsAffected()
-// 			if err != nil {
-// 				return http.StatusInternalServerError, err
-// 			} else if affected != 1 {
-// 				// row was not changed, the pack does not exist
-// 				return http.StatusNotFound, errors.New("pack not found")
-// 			}
+	// update pack title
+	res, err := h.db.ExecContext(i.Request.Context(),
+		"UPDATE packs SET title = $2 WHERE pack_id = $1", packID, reqbody.Title,
+	)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
 
-// 			return http.StatusOK, nil
+	// check whether anything was updated
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return http.StatusInternalServerError, err
+	} else if affected != 1 {
+		// row was not changed, the pack does not exist
+		return http.StatusNotFound, errors.New("pack not found")
+	}
 
-// 		},
-// 	)
-// }
+	return http.StatusOK, nil
+}
 
 // // PUT /api/packs/:pack_id/:role_id/:string_id
 // //
