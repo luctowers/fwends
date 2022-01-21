@@ -27,7 +27,7 @@ func main() {
 	rdb := newRedis(cfg)
 	s3c := newS3(cfg)
 	podIndex := getPodIndex()
-	// idgen := newIDGenerator(podIndex, logger)
+	idgen := newIDGenerator(podIndex)
 
 	// wrapper for handlers
 	w := func(h handler.Handler) httprouter.Handle {
@@ -42,8 +42,8 @@ func main() {
 	router.POST("/api/auth", w(api.Authenticate(cfg, db, rdb)))
 	router.GET("/api/auth", w(api.AuthVerify(cfg, rdb)))
 	router.GET("/api/auth/config", w(api.AuthConfig(cfg)))
+	router.POST("/api/packs/", w(api.CreatePack(db, idgen)))
 	// router.GET("/api/packs/", api.ListPacks(cfg, logger, db))
-	// router.POST("/api/packs/", api.CreatePack(cfg, logger, db, idgen))
 	// router.GET("/api/packs/:pack_id", api.GetPack(cfg, logger, db))
 	// router.PUT("/api/packs/:pack_id", api.UpdatePack(cfg, logger, db))
 	// router.DELETE("/api/packs/:pack_id", api.DeletePack(cfg, logger, db, s3c))
@@ -113,10 +113,10 @@ func getPodIndex() int64 {
 	return podIndex
 }
 
-// func newIDGenerator(podIndex int64) *util.SnowflakeGenerator {
-// 	snowflake, err := util.NewSnowflakeGenerator(podIndex)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	return snowflake
-// }
+func newIDGenerator(podIndex int64) *util.SnowflakeGenerator {
+	snowflake, err := util.NewSnowflakeGenerator(podIndex)
+	if err != nil {
+		panic(err)
+	}
+	return snowflake
+}
