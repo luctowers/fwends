@@ -34,6 +34,8 @@ spec:
               name: http
           envFrom:
             - configMapRef:
+                name: fwends-backend
+            - configMapRef:
                 name: fwends-auth
             - configMapRef:
                 name: fwends-postgres
