@@ -1,37 +1,28 @@
 package api
 
-// import (
-// 	"context"
-// 	"database/sql"
-// 	"encoding/json"
-// 	"errors"
-// 	"fmt"
-// 	"fwends-backend/config"
-// 	"fwends-backend/util"
-// 	"net/http"
-// 	"regexp"
-// 	"strconv"
+import (
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"fwends-backend/handler"
+	"fwends-backend/util"
+	"net/http"
+)
 
-// 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-// 	"github.com/aws/aws-sdk-go-v2/service/s3"
-// 	"github.com/julienschmidt/httprouter"
-// 	"github.com/lib/pq"
-// 	"go.uber.org/zap"
-// )
+/*
+Example curl commands:
 
-// /*
-// Example curl commands:
-
-// curl -X GET http://localhost:8080/api/packs/
-// curl -X POST http://localhost:8080/api/packs/ -d '{"title":"Test Pack"}'
-// curl -X GET http://localhost:8080/api/packs/6882582496895041536
-// curl -X PUT http://localhost:8080/api/packs/6882582496895041536 -d '{"title":"Updated Test Pack"}'
-// curl -X PUT http://localhost:8080/api/packs/6882582496895041536/role/string -H 'Content-Type: image/png' --data-binary "@path/to/image.png"
-// curl -X PUT http://localhost:8080/api/packs/6882582496895041536/role/string -H 'Content-Type: audio/mpeg' --data-binary "@path/to/audio.mp3"
-// curl -X DELETE http://localhost:8080/api/packs/6882582496895041536
-// curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role
-// curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role/string
-// */
+curl -X GET http://localhost:8080/api/packs/
+curl -X POST http://localhost:8080/api/packs/ -d '{"title":"Test Pack"}'
+curl -X GET http://localhost:8080/api/packs/6882582496895041536
+curl -X PUT http://localhost:8080/api/packs/6882582496895041536 -d '{"title":"Updated Test Pack"}'
+curl -X PUT http://localhost:8080/api/packs/6882582496895041536/role/string -H 'Content-Type: image/png' --data-binary "@path/to/image.png"
+curl -X PUT http://localhost:8080/api/packs/6882582496895041536/role/string -H 'Content-Type: audio/mpeg' --data-binary "@path/to/audio.mp3"
+curl -X DELETE http://localhost:8080/api/packs/6882582496895041536
+curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role
+curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role/string
+*/
 
 // // GET /api/packs/
 // //
@@ -91,54 +82,54 @@ package api
 // 	)
 // }
 
-// // POST /api/packs/
-// //
-// // Creates an new pack with a title and returns the id.
-// func CreatePack(cfg *config.Config, logger *zap.Logger, db *sql.DB, snowflake *util.SnowflakeGenerator) httprouter.Handle {
-// 	type requestBody struct {
-// 		Title string `json:"title"`
-// 	}
-// 	type responseBody struct {
-// 		// encode as string because javascript doesn't play nice with 64-bit ints
-// 		ID int64 `json:"id,string"`
-// 	}
-// 	return util.WrapDecoratedHandle(
-// 		cfg, logger,
-// 		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
+// POST /api/packs/
+//
+// Creates an new pack with a title and returns the id.
+func CreatePack(db *sql.DB, idgen *util.SnowflakeGenerator) handler.Handler {
+	return &CreatePackHandler{db, idgen}
+}
 
-// 			// decode request body
-// 			decoder := json.NewDecoder(r.Body)
-// 			var reqbody requestBody
-// 			err := decoder.Decode(&reqbody)
-// 			if err != nil {
-// 				return http.StatusBadRequest, fmt.Errorf("failed to decode resonse body: %v", err)
-// 			} else if len(reqbody.Title) == 0 {
-// 				return http.StatusBadRequest, errors.New("empty pack title is not allowed")
-// 			}
+type CreatePackHandler struct {
+	db    *sql.DB
+	idgen *util.SnowflakeGenerator
+}
 
-// 			// this id will be used for the life of pack
-// 			id := snowflake.GenID()
+func (h *CreatePackHandler) Handle(i handler.Input) (int, error) {
+	// decode request body
+	decoder := json.NewDecoder(i.Request.Body)
+	var reqbody struct {
+		Title string `json:"title"`
+	}
+	err := decoder.Decode(&reqbody)
+	if err != nil {
+		return http.StatusBadRequest, fmt.Errorf("failed to decode resonse body: %v", err)
+	} else if len(reqbody.Title) == 0 {
+		return http.StatusBadRequest, errors.New("empty pack title is not allowed")
+	}
 
-// 			// insert pack row in postgres
-// 			_, err = db.ExecContext(r.Context(),
-// 				"INSERT INTO packs (pack_id, title) VALUES ($1, $2)",
-// 				id, reqbody.Title,
-// 			)
-// 			if err != nil {
-// 				return http.StatusInternalServerError, err
-// 			}
+	// this id will be used for the life of pack
+	id := h.idgen.GenID()
 
-// 			// respond to request
-// 			var resbody responseBody
-// 			resbody.ID = id
-// 			w.Header().Set("Content-Type", "application/json")
-// 			json.NewEncoder(w).Encode(resbody)
+	// insert pack row in postgres
+	_, err = h.db.ExecContext(i.Request.Context(),
+		"INSERT INTO packs (pack_id, title) VALUES ($1, $2)",
+		id, reqbody.Title,
+	)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
 
-// 			return http.StatusOK, nil
+	// respond to request
+	var resbody struct {
+		// encode as string because javascript doesn't play nice with 64-bit ints
+		ID int64 `json:"id,string"`
+	}
+	resbody.ID = id
+	i.Response.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(i.Response).Encode(resbody)
 
-// 		},
-// 	)
-// }
+	return http.StatusOK, nil
+}
 
 // // GET /api/packs/:pack_id
 // //
