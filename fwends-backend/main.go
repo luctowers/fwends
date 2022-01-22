@@ -46,9 +46,9 @@ func main() {
 	router.PUT("/api/packs/:pack_id", w(api.UpdatePack(db)))
 	router.GET("/api/packs/", w(api.ListPacks(cfg, db)))
 	router.GET("/api/packs/:pack_id", w(api.GetPack(cfg, db)))
-	// router.DELETE("/api/packs/:pack_id", api.DeletePack(cfg, logger, db, s3c))
-	// router.DELETE("/api/packs/:pack_id/:role_id", api.DeletePackRole(cfg, logger, db, s3c))
-	// router.DELETE("/api/packs/:pack_id/:role_id/:string_id", api.DeletePackString(cfg, logger, db, s3c))
+	router.DELETE("/api/packs/:pack_id", w(api.DeletePack(cfg, db, s3c)))
+	router.DELETE("/api/packs/:pack_id/:role_id", w(api.DeletePackRole(cfg, db, s3c)))
+	router.DELETE("/api/packs/:pack_id/:role_id/:string_id", w(api.DeletePackString(cfg, db, s3c)))
 	router.PUT("/api/packs/:pack_id/:role_id/:string_id", w(api.UploadPackResource(cfg, db, s3c, idgen)))
 
 	// start the server
