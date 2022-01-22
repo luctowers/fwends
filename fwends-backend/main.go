@@ -49,7 +49,7 @@ func main() {
 	// router.DELETE("/api/packs/:pack_id", api.DeletePack(cfg, logger, db, s3c))
 	// router.DELETE("/api/packs/:pack_id/:role_id", api.DeletePackRole(cfg, logger, db, s3c))
 	// router.DELETE("/api/packs/:pack_id/:role_id/:string_id", api.DeletePackString(cfg, logger, db, s3c))
-	// router.PUT("/api/packs/:pack_id/:role_id/:string_id", api.UploadPackResource(cfg, logger, db, s3c, idgen))
+	router.PUT("/api/packs/:pack_id/:role_id/:string_id", w(api.UploadPackResource(cfg, db, s3c, idgen)))
 
 	// start the server
 	logger.With(zap.Int64("podIndex", podIndex)).Info("starting http server")
