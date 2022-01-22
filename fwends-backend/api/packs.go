@@ -81,7 +81,7 @@ curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role/string
 // 			}
 // 			rows.Close()
 
-// 			// respond to reqquest
+// 			// respond to request
 // 			w.Header().Set("Content-Type", "application/json")
 // 			json.NewEncoder(w).Encode(packs)
 
@@ -140,91 +140,124 @@ func (h *createPackHandler) Handle(i handler.Input) (int, error) {
 	return http.StatusOK, nil
 }
 
-// // GET /api/packs/:pack_id
-// //
-// // Gets a pack's title.
-// func GetPack(cfg *config.Config, logger *zap.Logger, db *sql.DB) httprouter.Handle {
-// 	type packString struct {
-// 		Audio int64 `json:"audio,string,omitempty"`
-// 		Image int64 `json:"image,string,omitempty"`
-// 	}
-// 	type responseBody struct {
-// 		Title     string                           `json:"title"`
-// 		Resources map[string]map[string]packString `json:"resources"`
-// 	}
-// 	return util.WrapDecoratedHandle(
-// 		cfg, logger,
-// 		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
+// GET /api/packs/:pack_id
+//
+// Gets a pack's title.
+func GetPack(cfg *config.Config, db *sql.DB) handler.Handler {
+	return &getPackHandler{cfg, db}
+}
 
-// 			// get path params
-// 			id := ps.ByName("pack_id")
+type getPackHandler struct {
+	cfg *config.Config
+	db  *sql.DB
+}
 
-// 			var resbody responseBody
+func (h *getPackHandler) Handle(i handler.Input) (int, error) {
+	packID := i.Params.ByName("pack_id")
 
-// 			// TODO: maybe a transaction should be used here, probably not needed though
+	var resbody struct {
+		Title string
+		Roles []packRole `json:"roles"`
+	}
 
-// 			// query postgres for pack title
-// 			rows, err := db.QueryContext(r.Context(), "SELECT title FROM packs WHERE pack_id = $1", id)
-// 			if err != nil {
-// 				return http.StatusInternalServerError, err
-// 			}
-// 			defer rows.Close()
-// 			if !rows.Next() {
-// 				// no row was returned
-// 				return http.StatusNotFound, errors.New("pack not found")
-// 			}
-// 			err = rows.Scan(&resbody.Title)
-// 			if err != nil {
-// 				return http.StatusInternalServerError, err
-// 			}
-// 			rows.Close()
+	// start a new transaction to ensure consistent state
+	tx, err := h.db.BeginTx(i.Request.Context(), &sql.TxOptions{
+		Isolation: sql.LevelRepeatableRead,
+	})
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	defer tx.Rollback()
 
-// 			// query postgres for pack resources
-// 			rows, err = db.QueryContext(r.Context(), "SELECT role_id, string_id, resource_class, resource_id FROM pack_resources WHERE pack_id = $1", id)
-// 			if err != nil {
-// 				return http.StatusInternalServerError, err
-// 			}
-// 			defer rows.Close()
-// 			resbody.Resources = make(map[string]map[string]packString)
-// 			for rows.Next() {
-// 				var roleID string
-// 				var stringID string
-// 				var resourceClass string
-// 				var resourceID int64
-// 				err := rows.Scan(&roleID, &stringID, &resourceClass, &resourceID)
-// 				if err != nil {
-// 					return http.StatusInternalServerError, err
-// 				}
-// 				roleMap, rolePresent := resbody.Resources[roleID]
-// 				if !rolePresent {
-// 					roleMap = make(map[string]packString)
-// 					resbody.Resources[roleID] = roleMap
-// 				}
-// 				str, strPresent := roleMap[stringID]
-// 				if !strPresent {
-// 					str = packString{}
-// 				}
-// 				switch resourceClass {
-// 				case "audio":
-// 					str.Audio = resourceID
-// 				case "image":
-// 					str.Image = resourceID
-// 				default:
-// 					logger.Warn("unknown pack resource class found in database", zap.String("resourceClass", resourceClass))
-// 				}
-// 				roleMap[stringID] = str
-// 			}
-// 			rows.Close()
+	// query postgres for pack title
+	resbody.Title, err = h.getPackTitle(i.Request.Context(), tx, packID)
+	if err == errPackNotFoundError {
+		return http.StatusNotFound, nil
+	} else if err != nil {
+		return http.StatusInternalServerError, err
+	}
 
-// 			// respond to request
-// 			w.Header().Set("Content-Type", "application/json")
-// 			json.NewEncoder(w).Encode(resbody)
+	// get pack resources
+	resbody.Roles, err = h.getPackResources(i.Request.Context(), tx, packID)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
 
-// 			return http.StatusOK, nil
+	// respond to request
+	i.Response.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(i.Response).Encode(resbody)
 
-// 		},
-// 	)
-// }
+	return http.StatusOK, nil
+}
+
+func (h *getPackHandler) getPackTitle(ctx context.Context, tx *sql.Tx, packID string) (string, error) {
+	rows, err := tx.QueryContext(ctx,
+		"SELECT title FROM packs WHERE pack_id = $1", packID,
+	)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		// no row was returned
+		return "", errPackNotFoundError
+	}
+	var title string
+	err = rows.Scan(&title)
+	if err != nil {
+		return "", err
+	}
+	return title, nil
+}
+
+func (h *getPackHandler) getPackResources(ctx context.Context, tx *sql.Tx, packID string) ([]packRole, error) {
+	// query postgres for pack resources
+	rows, err := tx.QueryContext(ctx,
+		`
+		SELECT role_id, string_id, resource_class, resource_id
+		FROM pack_resources WHERE pack_id = $1
+		ORDER BY role_id, string_id
+		`,
+		packID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	roles := make([]packRole, 0)
+	var prevRoleID string
+	var prevStringID string
+	for rows.Next() {
+		var roleID string
+		var stringID string
+		var resourceClass string
+		var resourceID int64
+		err := rows.Scan(&roleID, &stringID, &resourceClass, &resourceID)
+		if err != nil {
+			return nil, err
+		}
+		if roleID != prevRoleID {
+			roles = append(roles, packRole{
+				ID:      roleID,
+				Strings: []packString{{ID: stringID}},
+			})
+		} else if stringID != prevStringID {
+			role := &roles[len(roles)-1]
+			role.Strings = append(role.Strings, packString{ID: stringID})
+		}
+		role := &roles[len(roles)-1]
+		str := &role.Strings[len(role.Strings)-1]
+		switch resourceClass {
+		case "audio":
+			str.Audio = resourceID
+		case "image":
+			str.Image = resourceID
+		}
+		prevRoleID = roleID
+		prevStringID = stringID
+	}
+	return roles, nil
+}
 
 // PUT /api/packs/:pack_id
 //
@@ -266,7 +299,7 @@ func (h *updatePackHandler) Handle(i handler.Input) (int, error) {
 		return http.StatusInternalServerError, err
 	} else if affected != 1 {
 		// row was not changed, the pack does not exist
-		return http.StatusNotFound, errors.New("pack not found")
+		return http.StatusNotFound, nil
 	}
 
 	return http.StatusOK, nil
@@ -338,10 +371,12 @@ func (h *uploadPackResourceHandler) Handle(i handler.Input) (int, error) {
 
 	// loop that will retry if transaction serialization anomaly occurs
 	for !transactionCommited {
-		transactionCommited, err = h.updatePackResourceID(i.Request.Context(),
+		transactionCommited, err = h.updateResourceID(i.Request.Context(),
 			packID, roleID, stringID, resourceClass, resourceID,
 		)
-		if err != nil {
+		if err == errPackNotFoundError {
+			return http.StatusNotFound, err
+		} else if err != nil {
 			return http.StatusInternalServerError, err
 		}
 	}
@@ -386,7 +421,7 @@ func (h *uploadPackResourceHandler) uploadResource(r *http.Request, resourceID s
 	return err
 }
 
-func (h *uploadPackResourceHandler) updatePackResourceID(
+func (h *uploadPackResourceHandler) updateResourceID(
 	ctx context.Context, packID string, roleID string, stringID string, resourceClass string, resourceID string,
 ) (bool, error) {
 	// begin a new transcation
@@ -419,8 +454,7 @@ func (h *uploadPackResourceHandler) updatePackResourceID(
 	var previousResourceID sql.NullInt64
 	if !rows.Next() {
 		// no row returned, the pack does not exist
-		// TODO: have a specialized
-		return false, errors.New("pack not found")
+		return false, errPackNotFoundError
 	} else {
 		rows.Scan(&previousResourceID)
 	}
@@ -577,7 +611,20 @@ func (h *packResourceHandler) pruneResource(ctx context.Context, id string) erro
 
 // // HELPERS
 
+type packString struct {
+	ID    string `json:"id"`
+	Audio int64  `json:"audio,string,omitempty"`
+	Image int64  `json:"image,string,omitempty"`
+}
+
+type packRole struct {
+	ID      string       `json:"id"`
+	Strings []packString `json:"strings"`
+}
+
 var packResourceIDRegex = regexp.MustCompile(`^[a-z0-9_]{1,63}$`)
+
+var errPackNotFoundError = errors.New("pack not found")
 
 func isRetryableSerializationFailure(err error) bool {
 	if pqErr, ok := err.(*pq.Error); ok {
