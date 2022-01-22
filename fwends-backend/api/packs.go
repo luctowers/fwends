@@ -16,7 +16,6 @@ import (
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/lib/pq"
-	"go.uber.org/zap"
 )
 
 /*
@@ -52,10 +51,10 @@ func (h *listPacksHandler) Handle(i handler.Input) (int, error) {
 		SELECT
 			packs.pack_id,
 			packs.title,
-			COUNT(DISTINCT pack_Resources.role_id),
-			COUNT(DISTINCT pack_Resources.string_id)
+			COUNT(DISTINCT pack_resources.role_id),
+			COUNT(DISTINCT pack_resources.role_id || '-' || pack_resources.string_id)
 		FROM packs
-			LEFT OUTER JOIN pack_Resources ON pack_Resources.pack_id = packs.pack_id
+			LEFT OUTER JOIN pack_resources ON pack_resources.pack_id = packs.pack_id
 		GROUP BY packs.pack_id
 	`)
 	if err != nil {
@@ -300,12 +299,6 @@ func UploadPackResource(cfg *config.Config, db *sql.DB, s3c *s3.Client, idgen *u
 	return &uploadPackResourceHandler{idgen, packResourceHandler{cfg, db, s3c}}
 }
 
-type packResourceHandler struct {
-	cfg *config.Config
-	db  *sql.DB
-	s3c *s3.Client
-}
-
 type uploadPackResourceHandler struct {
 	idgen *util.SnowflakeGenerator
 	packResourceHandler
@@ -345,12 +338,7 @@ func (h *uploadPackResourceHandler) Handle(i handler.Input) (int, error) {
 	transactionCommited := false
 	defer func() {
 		if !transactionCommited {
-			go func() {
-				err := h.pruneResource(context.Background(), resourceID)
-				if err != nil {
-					i.Logger.With(zap.Error(err)).Warn("failed to prune resource")
-				}
-			}()
+			go h.pruneResource(context.Background(), resourceID)
 		}
 	}()
 
@@ -496,13 +484,160 @@ func (h *uploadPackResourceHandler) updateResourceID(
 
 	// asynchronously attempt to prune old resource
 	if previousResourceID.Valid {
-		go func() {
-			id := strconv.FormatInt(previousResourceID.Int64, 10)
-			h.pruneResource(context.Background(), id)
-		}()
+		id := strconv.FormatInt(previousResourceID.Int64, 10)
+		go h.pruneResource(context.Background(), id)
 	}
 
 	return true, nil
+}
+
+// DELETE /api/packs/:pack_id
+//
+// Deletes a pack and its ascociated resources.
+func DeletePack(cfg *config.Config, db *sql.DB, s3c *s3.Client) handler.Handler {
+	return &deletePackHandler{packResourceHandler{cfg, db, s3c}}
+}
+
+type deletePackHandler struct {
+	packResourceHandler
+}
+
+func (h *deletePackHandler) Handle(i handler.Input) (int, error) {
+	packID := i.Params.ByName("pack_id")
+
+	for {
+		// begin a new transcation
+		tx, err := h.db.BeginTx(i.Request.Context(), &sql.TxOptions{
+			Isolation: sql.LevelSerializable,
+		})
+		if err != nil {
+			return http.StatusInternalServerError, err
+		}
+		defer tx.Rollback()
+
+		// delete pack resources and returns the resource ids
+		rows, err := tx.QueryContext(i.Request.Context(),
+			"DELETE FROM pack_resources WHERE pack_id = $1 RETURNING resource_id",
+			packID,
+		)
+		if err != nil {
+			return http.StatusInternalServerError, err
+		}
+		defer rows.Close()
+		resourceIDs := make([]string, 0)
+		for rows.Next() {
+			var resourceID string
+			err := rows.Scan(&resourceID)
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			resourceIDs = append(resourceIDs, resourceID)
+		}
+
+		// delete pack resources and returns the resource ids
+		_, err = tx.ExecContext(i.Request.Context(),
+			"DELETE FROM packs WHERE pack_id = $1", packID,
+		)
+		if err != nil {
+			if isRetryableSerializationFailure(err) {
+				continue
+			}
+			return http.StatusInternalServerError, err
+		}
+
+		// commit transaction
+		err = tx.Commit()
+		if err != nil {
+			if isRetryableSerializationFailure(err) {
+				continue
+			}
+			return http.StatusInternalServerError, err
+		}
+
+		// prune resources asynchronously
+		for _, id := range resourceIDs {
+			go h.pruneResource(context.Background(), id)
+		}
+
+		break
+	}
+
+	return http.StatusOK, nil
+}
+
+// DELETE /api/packs/:pack_id/:role_id
+//
+// Deletes all pack resources belonging to a role.
+func DeletePackRole(cfg *config.Config, db *sql.DB, s3c *s3.Client) handler.Handler {
+	return &deletePackRoleHandler{packResourceHandler{cfg, db, s3c}}
+}
+
+type deletePackRoleHandler struct {
+	packResourceHandler
+}
+
+func (h *deletePackRoleHandler) Handle(i handler.Input) (int, error) {
+	packID := i.Params.ByName("pack_id")
+	roleID := i.Params.ByName("role_id")
+
+	rows, err := h.db.QueryContext(i.Request.Context(),
+		"DELETE FROM pack_resources WHERE pack_id = $1 AND role_id = $2 RETURNING resource_id",
+		packID, roleID,
+	)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var resourceID string
+		err := rows.Scan(&resourceID)
+		if err == nil {
+			go h.pruneResource(context.Background(), resourceID)
+		}
+	}
+
+	return http.StatusOK, nil
+}
+
+// // PUT /api/packs/:pack_id/:role_id/:string_id
+// //
+// // Deletes all pack resources belonging to a string.
+func DeletePackString(cfg *config.Config, db *sql.DB, s3c *s3.Client) handler.Handler {
+	return &deletePackStringHandler{packResourceHandler{cfg, db, s3c}}
+}
+
+type deletePackStringHandler struct {
+	packResourceHandler
+}
+
+func (h *deletePackStringHandler) Handle(i handler.Input) (int, error) {
+	packID := i.Params.ByName("pack_id")
+	roleID := i.Params.ByName("role_id")
+	stringID := i.Params.ByName("string_id")
+
+	rows, err := h.db.QueryContext(i.Request.Context(),
+		"DELETE FROM pack_resources WHERE pack_id = $1 AND role_id = $2 AND string_id = $3 RETURNING resource_id",
+		packID, roleID, stringID,
+	)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var resourceID string
+		err := rows.Scan(&resourceID)
+		if err == nil {
+			go h.pruneResource(context.Background(), resourceID)
+		}
+	}
+
+	return http.StatusOK, nil
+}
+
+type packResourceHandler struct {
+	cfg *config.Config
+	db  *sql.DB
+	s3c *s3.Client
 }
 
 func (h *packResourceHandler) pruneResource(ctx context.Context, id string) error {
@@ -554,48 +689,6 @@ func (h *packResourceHandler) pruneResource(ctx context.Context, id string) erro
 
 	return nil
 }
-
-// // DELETE /api/packs/:pack_id
-// //
-// // Deletes a pack and its ascociated resources.
-// func DeletePack(cfg *config.Config, logger *zap.Logger, db *sql.DB, s3c *s3.Client) httprouter.Handle {
-// 	return util.WrapDecoratedHandle(
-// 		cfg, logger,
-// 		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
-
-// 			return http.StatusOK, nil
-
-// 		},
-// 	)
-// }
-
-// // DELETE /api/packs/:pack_id/:role_id
-// //
-// // Deletes all pack resources belonging to a role.
-// func DeletePackRole(cfg *config.Config, logger *zap.Logger, db *sql.DB, s3c *s3.Client) httprouter.Handle {
-// 	return util.WrapDecoratedHandle(
-// 		cfg, logger,
-// 		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
-
-// 			return http.StatusOK, nil
-
-// 		},
-// 	)
-// }
-
-// // PUT /api/packs/:pack_id/:role_id/:string_id
-// //
-// // Deletes all pack resources belonging to a string.
-// func DeletePackString(cfg *config.Config, logger *zap.Logger, db *sql.DB, s3c *s3.Client) httprouter.Handle {
-// 	return util.WrapDecoratedHandle(
-// 		cfg, logger,
-// 		func(w http.ResponseWriter, r *http.Request, ps httprouter.Params, logger *zap.Logger) (int, error) {
-
-// 			return http.StatusOK, nil
-
-// 		},
-// 	)
-// }
 
 //  HELPERS
 
