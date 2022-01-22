@@ -44,7 +44,7 @@ func main() {
 	router.GET("/api/auth/config", w(api.AuthConfig(cfg)))
 	router.POST("/api/packs/", w(api.CreatePack(db, idgen)))
 	router.PUT("/api/packs/:pack_id", w(api.UpdatePack(db)))
-	// router.GET("/api/packs/", api.ListPacks(cfg, logger, db))
+	router.GET("/api/packs/", w(api.ListPacks(cfg, db)))
 	router.GET("/api/packs/:pack_id", w(api.GetPack(cfg, db)))
 	// router.DELETE("/api/packs/:pack_id", api.DeletePack(cfg, logger, db, s3c))
 	// router.DELETE("/api/packs/:pack_id/:role_id", api.DeletePackRole(cfg, logger, db, s3c))

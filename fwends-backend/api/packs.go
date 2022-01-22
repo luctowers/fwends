@@ -33,63 +33,51 @@ curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role
 curl -X DELETE http://localhost:8080/api/packs/6882582496895041536/role/string
 */
 
-// // GET /api/packs/
-// //
-// // Lists all existing packs.
-// func ListPacks(cfg *config.Config, logger *zap.Logger, db *sql.DB) httprouter.Handle {
-// 	type packResponse struct {
-// 		ID          int64  `json:"id,string"`
-// 		Title       string `json:"title"`
-// 		RoleCount   int    `json:"roleCount"`
-// 		StringCount int    `json:"stringCount"`
-// 	}
-// 	return util.WrapDecoratedHandle(
-// 		cfg, logger,
-// 		func(w http.ResponseWriter, r *http.Request, _ httprouter.Params, logger *zap.Logger) (int, error) {
+// GET /api/packs/
+//
+// Lists all existing packs.
+func ListPacks(cfg *config.Config, db *sql.DB) handler.Handler {
+	return &listPacksHandler{cfg, db}
+}
 
-// 			packs := make([]packResponse, 0)
+type listPacksHandler struct {
+	cfg *config.Config
+	db  *sql.DB
+}
 
-// 			rows, err := db.QueryContext(r.Context(), `
-// 				SELECT
-// 					packs.id,
-// 					packs.title,
-// 					COUNT(DISTINCT audios.roleId) as roleCount,
-// 					COUNT(DISTINCT audios.stringId) as stringCount
-// 				FROM packs
-// 					LEFT OUTER JOIN packResources as images ON
-// 						packs.id = images.packId AND
-// 						images.ready = TRUE AND images.class = 'image'
-// 					LEFT OUTER JOIN packResources as audios ON
-// 						images.packId = audios.packId AND
-// 						images.stringId = audios.stringId AND
-// 						images.roleId = audios.roleId AND
-// 						audios.ready = TRUE AND
-// 						audios.class = 'audio'
-// 				GROUP BY packs.id
-// 			`)
-// 			if err != nil {
-// 				return http.StatusInternalServerError, err
-// 			}
-// 			defer rows.Close()
-// 			for rows.Next() {
-// 				var pack packResponse
-// 				err := rows.Scan(&pack.ID, &pack.Title, &pack.RoleCount, &pack.StringCount)
-// 				if err != nil {
-// 					return http.StatusInternalServerError, err
-// 				}
-// 				packs = append(packs, pack)
-// 			}
-// 			rows.Close()
+func (h *listPacksHandler) Handle(i handler.Input) (int, error) {
+	packs := make([]packSummary, 0)
 
-// 			// respond to request
-// 			w.Header().Set("Content-Type", "application/json")
-// 			json.NewEncoder(w).Encode(packs)
+	rows, err := h.db.QueryContext(i.Request.Context(), `
+		SELECT
+			packs.pack_id,
+			packs.title,
+			COUNT(DISTINCT pack_Resources.role_id),
+			COUNT(DISTINCT pack_Resources.string_id)
+		FROM packs
+			LEFT OUTER JOIN pack_Resources ON pack_Resources.pack_id = packs.pack_id
+		GROUP BY packs.pack_id
+	`)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var pack packSummary
+		err := rows.Scan(&pack.ID, &pack.Title, &pack.RoleCount, &pack.StringCount)
+		if err != nil {
+			return http.StatusInternalServerError, err
+		}
+		packs = append(packs, pack)
+	}
+	rows.Close()
 
-// 			return http.StatusOK, nil
+	// respond to request
+	i.Response.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(i.Response).Encode(packs)
 
-// 		},
-// 	)
-// }
+	return http.StatusOK, nil
+}
 
 // POST /api/packs/
 //
@@ -609,7 +597,7 @@ func (h *packResourceHandler) pruneResource(ctx context.Context, id string) erro
 // 	)
 // }
 
-// // HELPERS
+//  HELPERS
 
 type packString struct {
 	ID    string `json:"id"`
@@ -620,6 +608,13 @@ type packString struct {
 type packRole struct {
 	ID      string       `json:"id"`
 	Strings []packString `json:"strings"`
+}
+
+type packSummary struct {
+	ID          int64  `json:"id,string"`
+	Title       string `json:"title"`
+	RoleCount   int    `json:"roleCount"`
+	StringCount int    `json:"stringCount"`
 }
 
 var packResourceIDRegex = regexp.MustCompile(`^[a-z0-9_]{1,63}$`)
