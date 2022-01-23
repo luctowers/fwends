@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -51,6 +53,7 @@ func (h *listPacksHandler) Handle(i handler.Input) (int, error) {
 		SELECT
 			packs.pack_id,
 			packs.title,
+			packs.hash,
 			COUNT(DISTINCT pack_resources.role_id),
 			COUNT(DISTINCT pack_resources.role_id || '-' || pack_resources.string_id)
 		FROM packs
@@ -63,7 +66,9 @@ func (h *listPacksHandler) Handle(i handler.Input) (int, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var pack packSummary
-		err := rows.Scan(&pack.ID, &pack.Title, &pack.RoleCount, &pack.StringCount)
+		var hash []byte
+		err := rows.Scan(&pack.ID, &pack.Title, &hash, &pack.RoleCount, &pack.StringCount)
+		pack.Hash = hex.EncodeToString(hash)
 		if err != nil {
 			return http.StatusInternalServerError, err
 		}
@@ -118,9 +123,12 @@ func (h *createPackHandler) Handle(i handler.Input) (int, error) {
 	// respond to request
 	var resbody struct {
 		// encode as string because javascript doesn't play nice with 64-bit ints
-		ID int64 `json:"id,string"`
+		ID   int64  `json:"id,string"`
+		Hash string `json:"hash"`
 	}
 	resbody.ID = id
+	// sha256 of nothing
+	resbody.Hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	i.Response.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(i.Response).Encode(resbody)
 
@@ -143,7 +151,8 @@ func (h *getPackHandler) Handle(i handler.Input) (int, error) {
 	packID := i.Params.ByName("pack_id")
 
 	var resbody struct {
-		Title string
+		Title string     `json:"title"`
+		Hash  string     `json:"hash"`
 		Roles []packRole `json:"roles"`
 	}
 
@@ -157,7 +166,7 @@ func (h *getPackHandler) Handle(i handler.Input) (int, error) {
 	defer tx.Rollback()
 
 	// query postgres for pack title
-	resbody.Title, err = h.getPackTitle(i.Request.Context(), tx, packID)
+	resbody.Title, resbody.Hash, err = h.getPackDetails(i.Request.Context(), tx, packID)
 	if err == errPackNotFoundError {
 		return http.StatusNotFound, nil
 	} else if err != nil {
@@ -177,24 +186,25 @@ func (h *getPackHandler) Handle(i handler.Input) (int, error) {
 	return http.StatusOK, nil
 }
 
-func (h *getPackHandler) getPackTitle(ctx context.Context, tx *sql.Tx, packID string) (string, error) {
+func (h *getPackHandler) getPackDetails(ctx context.Context, tx *sql.Tx, packID string) (string, string, error) {
 	rows, err := tx.QueryContext(ctx,
-		"SELECT title FROM packs WHERE pack_id = $1", packID,
+		"SELECT title, hash FROM packs WHERE pack_id = $1", packID,
 	)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer rows.Close()
 	if !rows.Next() {
 		// no row was returned
-		return "", errPackNotFoundError
+		return "", "", errPackNotFoundError
 	}
 	var title string
-	err = rows.Scan(&title)
+	var hash []byte
+	err = rows.Scan(&title, &hash)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return title, nil
+	return title, hex.EncodeToString(hash), nil
 }
 
 func (h *getPackHandler) getPackResources(ctx context.Context, tx *sql.Tx, packID string) ([]packRole, error) {
@@ -343,17 +353,26 @@ func (h *uploadPackResourceHandler) Handle(i handler.Input) (int, error) {
 	}()
 
 	// upload the resource to s3
-	h.uploadResource(i.Request, resourceID)
+	err = h.uploadResource(i.Request, resourceID)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
 
 	// loop that will retry if transaction serialization anomaly occurs
 	for !transactionCommited {
-		transactionCommited, err = h.updateResourceID(i.Request.Context(),
+		prevResourceID, err := h.updateResourceIDTransaction(i.Request.Context(),
 			packID, roleID, stringID, resourceClass, resourceID,
 		)
-		if err == errPackNotFoundError {
+		if isRetryableSerializationFailure(err) {
+			continue
+		} else if err == errPackNotFoundError {
 			return http.StatusNotFound, err
 		} else if err != nil {
 			return http.StatusInternalServerError, err
+		}
+		transactionCommited = true
+		if prevResourceID != "" {
+			go h.pruneResource(context.Background(), prevResourceID)
 		}
 	}
 
@@ -397,15 +416,15 @@ func (h *uploadPackResourceHandler) uploadResource(r *http.Request, resourceID s
 	return err
 }
 
-func (h *uploadPackResourceHandler) updateResourceID(
+func (h *uploadPackResourceHandler) updateResourceIDTransaction(
 	ctx context.Context, packID string, roleID string, stringID string, resourceClass string, resourceID string,
-) (bool, error) {
+) (string, error) {
 	// begin a new transcation
 	tx, err := h.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelSerializable,
 	})
 	if err != nil {
-		return false, err
+		return "", err
 	}
 	defer tx.Rollback()
 
@@ -424,13 +443,13 @@ func (h *uploadPackResourceHandler) updateResourceID(
 		packID, roleID, stringID, resourceClass,
 	)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 	defer rows.Close()
 	var previousResourceID sql.NullInt64
 	if !rows.Next() {
 		// no row returned, the pack does not exist
-		return false, errPackNotFoundError
+		return "", errPackNotFoundError
 	} else {
 		rows.Scan(&previousResourceID)
 	}
@@ -463,32 +482,33 @@ func (h *uploadPackResourceHandler) updateResourceID(
 		packID, roleID, stringID, resourceClass, resourceID,
 	)
 	if err != nil {
-		if isRetryableSerializationFailure(err) {
-			return false, nil
-		}
-		return false, err
+		return "", err
 	}
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected != 1 {
-		return false, errors.New("inconsistent rows affected")
+		return "", errors.New("inconsistent rows affected")
+	}
+
+	// update pack hash if a new row was inserted
+	if !previousResourceID.Valid {
+		err = h.updatePackHash(ctx, tx, packID)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// commit transaction
 	err = tx.Commit()
 	if err != nil {
-		if isRetryableSerializationFailure(err) {
-			return false, nil
-		}
-		return false, err
+		return "", err
 	}
 
-	// asynchronously attempt to prune old resource
+	// return previous resource if it exists
 	if previousResourceID.Valid {
-		id := strconv.FormatInt(previousResourceID.Int64, 10)
-		go h.pruneResource(context.Background(), id)
+		return strconv.FormatInt(previousResourceID.Int64, 10), nil
 	}
 
-	return true, nil
+	return "", nil
 }
 
 // DELETE /api/packs/:pack_id
@@ -506,63 +526,66 @@ func (h *deletePackHandler) Handle(i handler.Input) (int, error) {
 	packID := i.Params.ByName("pack_id")
 
 	for {
-		// begin a new transcation
-		tx, err := h.db.BeginTx(i.Request.Context(), &sql.TxOptions{
-			Isolation: sql.LevelSerializable,
-		})
-		if err != nil {
-			return http.StatusInternalServerError, err
-		}
-		defer tx.Rollback()
-
-		// delete pack resources and returns the resource ids
-		rows, err := tx.QueryContext(i.Request.Context(),
-			"DELETE FROM pack_resources WHERE pack_id = $1 RETURNING resource_id",
-			packID,
-		)
-		if err != nil {
-			return http.StatusInternalServerError, err
-		}
-		defer rows.Close()
-		resourceIDs := make([]string, 0)
-		for rows.Next() {
-			var resourceID string
-			err := rows.Scan(&resourceID)
-			if err != nil {
-				return http.StatusInternalServerError, err
-			}
-			resourceIDs = append(resourceIDs, resourceID)
-		}
-
-		// delete pack resources and returns the resource ids
-		_, err = tx.ExecContext(i.Request.Context(),
-			"DELETE FROM packs WHERE pack_id = $1", packID,
-		)
+		resourcesDeleted, err := h.transaction(i.Request.Context(), packID)
 		if err != nil {
 			if isRetryableSerializationFailure(err) {
 				continue
 			}
 			return http.StatusInternalServerError, err
 		}
-
-		// commit transaction
-		err = tx.Commit()
-		if err != nil {
-			if isRetryableSerializationFailure(err) {
-				continue
-			}
-			return http.StatusInternalServerError, err
+		for _, resourceID := range resourcesDeleted {
+			go h.pruneResource(context.Background(), resourceID)
 		}
-
-		// prune resources asynchronously
-		for _, id := range resourceIDs {
-			go h.pruneResource(context.Background(), id)
-		}
-
 		break
 	}
 
 	return http.StatusOK, nil
+}
+
+func (h *deletePackHandler) transaction(ctx context.Context, packID string) ([]string, error) {
+	// begin a new transcation
+	tx, err := h.db.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelSerializable,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// delete resources and get their id for pruning
+	rows, err := tx.QueryContext(ctx,
+		"DELETE FROM pack_resources WHERE pack_id = $1 RETURNING resource_id",
+		packID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	resourcesDeleted := make([]string, 0)
+	for rows.Next() {
+		var resourceID string
+		err := rows.Scan(&resourceID)
+		if err != nil {
+			return nil, err
+		}
+		resourcesDeleted = append(resourcesDeleted, resourceID)
+	}
+
+	// delete pack resources and returns the resource ids
+	_, err = tx.ExecContext(ctx,
+		"DELETE FROM packs WHERE pack_id = $1", packID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// commit transaction
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	return resourcesDeleted, nil
 }
 
 // DELETE /api/packs/:pack_id/:role_id
@@ -580,23 +603,67 @@ func (h *deletePackRoleHandler) Handle(i handler.Input) (int, error) {
 	packID := i.Params.ByName("pack_id")
 	roleID := i.Params.ByName("role_id")
 
-	rows, err := h.db.QueryContext(i.Request.Context(),
+	for {
+		resourcesDeleted, err := h.transaction(i.Request.Context(), packID, roleID)
+		if err != nil {
+			if isRetryableSerializationFailure(err) {
+				continue
+			}
+			return http.StatusInternalServerError, err
+		}
+		for _, resourceID := range resourcesDeleted {
+			go h.pruneResource(context.Background(), resourceID)
+		}
+		break
+	}
+
+	return http.StatusOK, nil
+}
+
+func (h *deletePackRoleHandler) transaction(ctx context.Context, packID string, roleID string) ([]string, error) {
+	// begin a new transcation
+	tx, err := h.db.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelSerializable,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// delete resources and get their id for pruning
+	rows, err := tx.QueryContext(ctx,
 		"DELETE FROM pack_resources WHERE pack_id = $1 AND role_id = $2 RETURNING resource_id",
 		packID, roleID,
 	)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return nil, err
 	}
 	defer rows.Close()
+	resourcesDeleted := make([]string, 0)
 	for rows.Next() {
 		var resourceID string
 		err := rows.Scan(&resourceID)
 		if err == nil {
-			go h.pruneResource(context.Background(), resourceID)
+			resourcesDeleted = append(resourcesDeleted, resourceID)
+		}
+	}
+	rows.Close()
+
+	// recompute the pack hash if anything was deleted
+	if len(resourcesDeleted) > 0 {
+		err = h.updatePackHash(ctx, tx, packID)
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	return http.StatusOK, nil
+	// commit transaction
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	return resourcesDeleted, nil
 }
 
 // // PUT /api/packs/:pack_id/:role_id/:string_id
@@ -615,23 +682,69 @@ func (h *deletePackStringHandler) Handle(i handler.Input) (int, error) {
 	roleID := i.Params.ByName("role_id")
 	stringID := i.Params.ByName("string_id")
 
-	rows, err := h.db.QueryContext(i.Request.Context(),
-		"DELETE FROM pack_resources WHERE pack_id = $1 AND role_id = $2 AND string_id = $3 RETURNING resource_id",
+	for {
+		resourcesDeleted, err := h.transaction(i.Request.Context(), packID, roleID, stringID)
+		if err != nil {
+			if isRetryableSerializationFailure(err) {
+				continue
+			}
+			return http.StatusInternalServerError, err
+		}
+		for _, resourceID := range resourcesDeleted {
+			go h.pruneResource(context.Background(), resourceID)
+		}
+		break
+	}
+
+	return http.StatusOK, nil
+}
+
+func (h *deletePackStringHandler) transaction(
+	ctx context.Context, packID string, roleID string, stringID string,
+) ([]string, error) {
+	// begin a new transcation
+	tx, err := h.db.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelSerializable,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// delete resources and get their id for pruning
+	rows, err := tx.QueryContext(ctx,
+		"DELETE FROM pack_resources WHERE pack_id = $1 AND role_id = $2 and string_id = $3 RETURNING resource_id",
 		packID, roleID, stringID,
 	)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return nil, err
 	}
 	defer rows.Close()
+	resourcesDeleted := make([]string, 0)
 	for rows.Next() {
 		var resourceID string
 		err := rows.Scan(&resourceID)
 		if err == nil {
-			go h.pruneResource(context.Background(), resourceID)
+			resourcesDeleted = append(resourcesDeleted, resourceID)
+		}
+	}
+	rows.Close()
+
+	// recompute the pack hash if anything was deleted
+	if len(resourcesDeleted) > 0 {
+		err = h.updatePackHash(ctx, tx, packID)
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	return http.StatusOK, nil
+	// commit transaction
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	return resourcesDeleted, nil
 }
 
 type packResourceHandler struct {
@@ -690,6 +803,54 @@ func (h *packResourceHandler) pruneResource(ctx context.Context, id string) erro
 	return nil
 }
 
+func (h *packResourceHandler) updatePackHash(ctx context.Context, tx *sql.Tx, packID string) error {
+	// query postgres for pack roles and strings
+	rows, err := tx.QueryContext(ctx,
+		`
+		SELECT DISTINCT role_id, string_id
+		FROM pack_resources WHERE pack_id = $1
+		ORDER BY role_id, string_id
+		`,
+		packID,
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	// compute sha256 digest
+	hash := sha256.New()
+	prevRoleID := ""
+	for rows.Next() {
+		var roleID string
+		var stringID string
+		err := rows.Scan(&roleID, &stringID)
+		if err != nil {
+			return err
+		}
+		// hash write never returns an error, per https://pkg.go.dev/hash#Hash
+		if roleID != prevRoleID {
+			_, _ = hash.Write([]byte{0})
+			_, _ = hash.Write([]byte(roleID))
+		}
+		_, _ = hash.Write([]byte{1})
+		_, _ = hash.Write([]byte(stringID))
+		prevRoleID = roleID
+	}
+	rows.Close()
+	digest := hash.Sum(nil)
+
+	// update the hash
+	_, err = tx.ExecContext(ctx,
+		"UPDATE packs SET hash = $2 WHERE pack_id = $1", packID, digest,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 //  HELPERS
 
 type packString struct {
@@ -706,6 +867,7 @@ type packRole struct {
 type packSummary struct {
 	ID          int64  `json:"id,string"`
 	Title       string `json:"title"`
+	Hash        string `json:"hash"`
 	RoleCount   int    `json:"roleCount"`
 	StringCount int    `json:"stringCount"`
 }
