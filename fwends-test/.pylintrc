@@ -6,5 +6,5 @@ disable=C0114,C0115,C0116
 
 indent-after-paren=4
 indent-string='\t'
-max-line-length=80
+max-line-length=120
 max-statements=100
