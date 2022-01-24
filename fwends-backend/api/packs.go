@@ -755,7 +755,7 @@ type packResourceHandler struct {
 
 func (h *packResourceHandler) pruneResource(ctx context.Context, id string) error {
 	// begin a new transcation
-	tx, err := h.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	tx, err := h.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return err
 	}
