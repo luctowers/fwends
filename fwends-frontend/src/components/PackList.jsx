@@ -62,9 +62,10 @@ function PackList() {
 				packs.map(pack =>
 					<Link to={"/packs/"+pack.id} key={pack.id}>
 						<div key={pack.id} className="h-32 button-frost flex-col">
-							<div className="font-bold mb-2">
+							<div className="font-bold">
 								{pack.title}
 							</div>
+							<span className="border border-neutral rounded px-1">{pack.hash.slice(0,7)}</span>
 							<div className="flex justify-center space-x-16">
 								<NumericDisplay value={pack.roleCount} label="Roles" />
 								<NumericDisplay value={pack.stringCount} label="Strings" />
